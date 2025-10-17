@@ -19,6 +19,18 @@
 }
 
 /*// ====================================
+// 🔧 Base & quality-of-life helpers
+// ====================================*/
+html {
+    scroll-behavior: smooth;
+}
+
+::selection {
+    background: rgba(212, 175, 55, 0.35);
+    color: #111;
+}
+
+/*// ====================================
 // 🧼 Global Reset & Body
 // ====================================*/
 * {
@@ -1024,6 +1036,8 @@ input:checked + .slider:before { transform: translateX(26px); }
         background: white !important;
         color: #333 !important;
         box-shadow: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     header, .app-header {
@@ -1202,4 +1216,30 @@ input:checked + .slider:before { transform: translateX(26px); }
     .menu-content, .flashcard-modal-content { padding: 15px; }
 
     .menu-title, .flashcard-modal-title { font-size: 1.5rem; }
+}
+
+/*// ====================================
+// ♿ Accessibility helpers
+// ====================================*/
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/*// ====================================
+// 🛑 Reduced Motion (accessibility)
+// ====================================*/
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
 }
