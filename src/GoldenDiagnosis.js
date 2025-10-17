@@ -909,9 +909,15 @@ function ensureThemedUIStyles() {
 function showToast(message, type = 'info') {
     const existing = document.querySelector('.toast');
     if (existing) existing.remove();
+
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
+
+    // ✅ Accessibility
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+
     if (!document.querySelector('#toast-styles')) {
         const style = document.createElement('style');
         style.id = 'toast-styles';
@@ -925,13 +931,16 @@ function showToast(message, type = 'info') {
         `;
         document.head.appendChild(style);
     }
+
     document.body.appendChild(toast);
+
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(-20px)';
         setTimeout(() => toast.remove(), 300);
     }, 4000);
 }
+
 function disableButton(selector) {
     const btn = $(selector);
     if (!btn) return;
@@ -1829,15 +1838,23 @@ function toE164(countryCode, nationalDigits) {
 // 🏷️ Postal code (CEP/ZIP) → Address
 // ====================================
 // Country masks for postal input (UX-only)
-function maskPostal(country, rawDigits) {
-    const d = digitsOnly(rawDigits);
-    switch ((country || 'BR').toUpperCase()) {
-        case 'BR': return d.length <= 5 ? d : d.slice(0, 5) + '-' + d.slice(5, 8);
-        case 'PT': return d.length <= 4 ? d : d.slice(0, 4) + '-' + d.slice(4, 7);
-        case 'US': return d.length <= 5 ? d : d.slice(0, 5) + '-' + d.slice(5, 9);
+function maskPostal(country, raw) {
+    const cc = (country || 'BR').toUpperCase();
+    const d  = (raw || '').toString();
+
+    switch (cc) {
+        case 'BR': { const z = d.replace(/\D+/g,''); return z.length <= 5 ? z : z.slice(0,5) + '-' + z.slice(5,8); }
+        case 'PT': { const z = d.replace(/\D+/g,''); return z.length <= 4 ? z : z.slice(0,4) + '-' + z.slice(4,7); }
+        case 'US': { const z = d.replace(/\D+/g,''); return z.length <= 5 ? z : z.slice(0,5) + '-' + z.slice(5,9); }
         case 'FR':
-        case 'ES': return d.slice(0, 5);
-        default: return d;
+        case 'ES': return d.replace(/\D+/g,'').slice(0,5);
+        case 'GB': {
+            // Normalize: uppercase, collapse spaces, then re-insert a single space before the last 3 chars if length >= 5
+            let s = d.toUpperCase().replace(/\s+/g,'').replace(/[^A-Z0-9]/g,'');
+            if (s.length > 3) s = s.slice(0, -3) + ' ' + s.slice(-3);
+            return s;
+        }
+        default: return d.replace(/\s+/g,' ').trim();
     }
 }
 
@@ -1962,24 +1979,35 @@ async function toDataURL(url) {
     /*// ------------------------------------
     // 🖼️ Convert image to data URL when same-origin; otherwise return URL to allow CORS rendering
     // ------------------------------------*/
-    if (!url) return '';
+    if (!url) return LOGO_BASE64_FALLBACK;
     try {
         const u = new URL(url, location.href);
         const fromFile = location.protocol === 'file:';
-        const crossOrigin = u.origin !== location.origin;
-
         if (fromFile) return LOGO_BASE64_FALLBACK;
-        if (crossOrigin) return url;
 
-        const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const blob = await res.blob();
-        return await new Promise((resolve, reject) => {
-            const fr = new FileReader();
-            fr.onload = () => resolve(fr.result);
-            fr.onerror = reject;
-            fr.readAsDataURL(blob);
-        });
+        const sameOrigin = (u.origin === location.origin);
+        if (sameOrigin) {
+            const res = await fetch(u.href, { mode: 'cors', credentials: 'omit' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const blob = await res.blob();
+            return await new Promise((resolve, reject) => {
+                const fr = new FileReader();
+                fr.onload = () => resolve(fr.result);
+                fr.onerror = reject;
+                fr.readAsDataURL(blob);
+            });
+        } else {
+            // Try CORS fetch; if blocked, fall back to inline SVG (guaranteed to render)
+            const res = await fetch(u.href, { mode: 'cors', credentials: 'omit' });
+            if (!res.ok) throw new Error('CORS fetch blocked');
+            const blob = await res.blob();
+            return await new Promise((resolve, reject) => {
+                const fr = new FileReader();
+                fr.onload = () => resolve(fr.result);
+                fr.onerror = reject;
+                fr.readAsDataURL(blob);
+            });
+        }
     } catch {
         return LOGO_BASE64_FALLBACK;
     }
@@ -3076,17 +3104,22 @@ function openModal(modalId) {
 function setupModalKeyboardNavigation(modal) {
     const focusables = modal.querySelectorAll('a,button,input,textarea,select,[tabindex]:not([tabindex="-1"])');
     const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    
-    const handleTabKey = (e) => {
+    const last  = focusables[focusables.length - 1];
+
+    const handler = (e) => {
         if (e.key === 'Tab') {
-            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-        } else if (e.key === 'Escape') { closeModal('flashcardModal'); }
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+        } else if (e.key === 'Escape') {
+            closeModal(modal.id);
+        }
     };
-    
-    modal.removeEventListener('keydown', handleTabKey);
-    modal.addEventListener('keydown', handleTabKey);
+
+    // Remove any previous handler we added
+    const prev = modal.__kbHandler;
+    if (prev) modal.removeEventListener('keydown', prev);
+    modal.__kbHandler = handler;
+    modal.addEventListener('keydown', handler);
 }
 
 /*// ------------------------------------
@@ -3295,6 +3328,26 @@ function setupActionLinks(root = document) {
 function setupMobileMenuItems() { setupActionLinks(document); }
 
 /*// ------------------------------------
+// 👆 Single-fire tap helper (prevents click+touch double triggers)
+// ------------------------------------*/
+function bindTap(el, handler) {
+    if (!el || typeof handler !== 'function') return;
+    let busy = false;
+    const run = (e) => {
+        // Avoid double-trigger (click + touchend)
+        e && e.preventDefault && e.preventDefault();
+        if (busy) return;
+        busy = true;
+        try { handler(e); } finally {
+            // Small cooldown to swallow the paired event
+            setTimeout(() => { busy = false; }, 60);
+        }
+    };
+    el.addEventListener('click', run, { passive: false });
+    el.addEventListener('touchend', run, { passive: false });
+}
+
+/*// ------------------------------------
 // 📱 Mobile menu (overlay + legacy drawer) — only ❌ closes
 // ------------------------------------*/
 function setupMobileMenu() {
@@ -3305,7 +3358,7 @@ function setupMobileMenu() {
     // Open overlay menu
     if (mobileMenuBtn && modalMenu) {
         const openMenu = (e) => {
-            e.preventDefault(); e.stopPropagation();
+            e && e.stopPropagation && e.stopPropagation();
             modalMenu.style.display = 'block';
             document.body.classList.add('no-scroll');
             requestAnimationFrame(() => {
@@ -3314,23 +3367,27 @@ function setupMobileMenu() {
             });
         };
         mobileMenuBtn.removeAttribute('onclick');
-        mobileMenuBtn.addEventListener('click', openMenu);
-        mobileMenuBtn.addEventListener('touchend', (e) => { e.preventDefault(); openMenu(e); }, { passive: false });
+        bindTap(mobileMenuBtn, openMenu);
     }
 
     // Only ❌ closes
     if (closeMenuBtn && modalMenu) {
-        const closeMenu = (e) => { e.preventDefault(); e.stopPropagation(); closeMobileMenu(); };
+        const closeMenu = (e) => {
+            e && e.stopPropagation && e.stopPropagation();
+            closeMobileMenu();
+        };
         closeMenuBtn.removeAttribute('onclick');
-        closeMenuBtn.addEventListener('click', closeMenu);
-        closeMenuBtn.addEventListener('touchend', closeMenu, { passive: false });
+        bindTap(closeMenuBtn, closeMenu);
     }
 
     // Do NOT close on overlay click anymore (requirement)
     if (modalMenu) {
         const overlay = modalMenu.querySelector('.modal-overlay');
         if (overlay) {
-            overlay.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); /* no auto-close */ });
+            bindTap(overlay, (e) => {
+                e && e.stopPropagation && e.stopPropagation();
+                // no auto-close
+            });
         }
     }
 
@@ -3339,15 +3396,14 @@ function setupMobileMenu() {
     const appMenu = $('#appMenu');
     if (toggle && appMenu) {
         const onToggle = (e) => {
-            e.preventDefault();
+            e && e.stopPropagation && e.stopPropagation();
             const willOpen = !appMenu.classList.contains('open');
             appMenu.classList.toggle('open');
             toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
             if (willOpen) document.body.classList.add('no-scroll');
             else document.body.classList.remove('no-scroll');
         };
-        toggle.addEventListener('click', onToggle);
-        toggle.addEventListener('touchend', (e) => { e.preventDefault(); onToggle(e); }, { passive: false });
+        bindTap(toggle, onToggle);
     }
 
     setupMobileMenuItems();
@@ -3525,15 +3581,23 @@ function attachGeneralEnhancers(root = document) {
         zipInput.addEventListener('blur', async () => {
             try {
                 const cc = (countrySel?.value || 'BR').toUpperCase();
-                const digits = digitsOnly(zipInput.value);
-                const enough = (
-                    (cc === 'BR' && digits.length === 8) ||
-                    (cc === 'US' && (digits.length === 5 || digits.length === 9)) ||
-                    (cc === 'PT' && digits.length === 7) ||
-                    ((cc === 'FR' || cc === 'ES' || cc === 'GB') && digits.length === 5)
-                );
+                const raw = zipInput.value || '';
+
+                // Token sent to the API:
+                const token = (cc === 'GB')
+                    ? raw.toUpperCase().replace(/\s+/g,'').replace(/[^A-Z0-9]/g,'')  // keep alphanumerics
+                    : raw.replace(/\D+/g,'');
+
+                const enough =
+                    (cc === 'BR' && token.length === 8) ||
+                    (cc === 'US' && (token.length === 5 || token.length === 9)) ||
+                    (cc === 'PT' && token.length === 7) ||
+                    (cc === 'FR' && token.length === 5) ||
+                    (cc === 'ES' && token.length === 5) ||
+                    (cc === 'GB' && token.length >= 5 && token.length <= 7);
+
                 if (!enough) return;
-                await fillAddressFromPostal(cc, digits, root);
+                await fillAddressFromPostal(cc, token, root);
             } catch (e) { console.warn(e); }
         });
         maskZip();
