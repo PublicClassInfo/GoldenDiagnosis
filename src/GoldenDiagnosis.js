@@ -1939,8 +1939,6 @@ function collectFilledData() {
 /*// ====================================
 // 🖼️ Logo Helpers (local/remote/fallback)
 // ====================================*/
-const LOGO_BASE64_FALLBACK = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjIwIiBoZWlnaHQ9IjIyMCIgdmlld0JveD0iMCAwIDIyMCAyMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHJhZGlhbEdyYWRpZW50IGlkPSJnIiBjeD0iNTAlIiBjeT0iNTAlIiByPSI3MCI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzEyYTA4ZiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzBmNzY2ZSIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPjxjaXJjbGUgY3g9IjExMCIgY3k9IjExMCIgcj0iMTAwIiBmaWxsPSJ1cmwoI2cpIiBzdHJva2U9IiNkNGFmMzciIHN0cm9rZS13aWR0aD0iMTAiLz48Y2lyY2xlIGN4PSIxMTAiIGN5PSIxMTAiIHI9Ijg0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmMmUzYTYiIHN0cm9rZS13aWR0aD0iMyIgb3BhY2l0eT0iLjgiLz48dGV4dCB4PSIxMTAiIHk9IjEzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Ik5vdG8gU2VyaWYgU0MsIHNlcmlmIiBmb250LXNpemU9Ijk2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjYmYxZTJlIj7kuK3lvI08L3RleHQ+PC9zdmc+";
-
 async function chooseWorkingLogoSrc() {
     const el = document.getElementById('brandLogo') || document.querySelector('img.logo, .site-logo img');
     if (el?.src) return el.src;
