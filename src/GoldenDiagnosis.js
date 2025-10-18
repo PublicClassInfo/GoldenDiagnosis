@@ -1941,19 +1941,33 @@ function collectFilledData() {
 // ====================================*/
 const LOGO_BASE64_FALLBACK = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjIwIiBoZWlnaHQ9IjIyMCIgdmlld0JveD0iMCAwIDIyMCAyMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHJhZGlhbEdyYWRpZW50IGlkPSJnIiBjeD0iNTAlIiBjeT0iNTAlIiByPSI3MCI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzEyYTA4ZiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzBmNzY2ZSIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPjxjaXJjbGUgY3g9IjExMCIgY3k9IjExMCIgcj0iMTAwIiBmaWxsPSJ1cmwoI2cpIiBzdHJva2U9IiNkNGFmMzciIHN0cm9rZS13aWR0aD0iMTAiLz48Y2lyY2xlIGN4PSIxMTAiIGN5PSIxMTAiIHI9Ijg0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmMmUzYTYiIHN0cm9rZS13aWR0aD0iMyIgb3BhY2l0eT0iLjgiLz48dGV4dCB4PSIxMTAiIHk9IjEzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Ik5vdG8gU2VyaWYgU0MsIHNlcmlmIiBmb250LXNpemU9Ijk2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjYmYxZTJlIj7kuK3lvI08L3RleHQ+PC9zdmc+";
 
+// Pin a known-good commit; fall back to main if needed
+const REPO_COMMIT_SHA = "18a7e5a28929655ad6bc1bc81d35b3bb6cb3505d";
+
 async function chooseWorkingLogoSrc() {
     const el = document.getElementById('brandLogo') || document.querySelector('img.logo, .site-logo img');
     if (el?.src) return el.src;
-    const local = ['/Images/MariaLogo.png', 'Images/MariaLogo.png', './Images/MariaLogo.png'];
-    const remote = ['https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/Images/MariaLogo.png'];
 
-    for (const url of local) { 
-        if (await preloadImage(url).catch(() => false)) 
-            return url; 
+    // Prefer source repo layout first (/src/Images), then generic /Images paths
+    const local = [
+        '/src/Images/MariaLogo.png',
+        'src/Images/MariaLogo.png',
+        '/Images/MariaLogo.png',
+        'Images/MariaLogo.png',
+        './Images/MariaLogo.png'
+    ];
+
+    // CDN (pinned commit first, then main)
+    const remote = [
+        `https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@${REPO_COMMIT_SHA}/src/Images/MariaLogo.png`,
+        'https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/Images/MariaLogo.png'
+    ];
+
+    for (const url of local) {
+        if (await preloadImage(url).catch(() => false)) return url;
     }
-    for (const url of remote) { 
-        if (await preloadImage(url, true).catch(() => false)) 
-            return url; 
+    for (const url of remote) {
+        if (await preloadImage(url, true).catch(() => false)) return url;
     }
     return LOGO_BASE64_FALLBACK;
 }
@@ -1962,52 +1976,39 @@ function preloadImage(url, cross = false, timeoutMs = 6000) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         if (cross) img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(true);
-        img.onerror = () => reject(false);
         const t = setTimeout(() => reject(false), timeoutMs);
-        img.addEventListener('load', () => clearTimeout(t), { once: true });
-        img.addEventListener('error', () => clearTimeout(t), { once: true });
+        img.onload = () => { clearTimeout(t); resolve(true); };
+        img.onerror = () => { clearTimeout(t); reject(false); };
         img.src = url;
     });
 }
 
-function buildFallbackLogoDataURL() { 
-    return LOGO_BASE64_FALLBACK; 
+function buildFallbackLogoDataURL() {
+    return LOGO_BASE64_FALLBACK;
 }
 
 async function toDataURL(url) {
     /*// ------------------------------------
-    // 🖼️ Convert image to data URL when same-origin; otherwise return URL to allow CORS rendering
+    // 🖼️ Convert image to data URL when possible; otherwise fall back to inline SVG
     // ------------------------------------*/
     if (!url) return LOGO_BASE64_FALLBACK;
+
     try {
         const u = new URL(url, location.href);
-        const fromFile = location.protocol === 'file:';
-        if (fromFile) return LOGO_BASE64_FALLBACK;
 
-        const sameOrigin = (u.origin === location.origin);
-        if (sameOrigin) {
-            const res = await fetch(u.href, { mode: 'cors', credentials: 'omit' });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const blob = await res.blob();
-            return await new Promise((resolve, reject) => {
-                const fr = new FileReader();
-                fr.onload = () => resolve(fr.result);
-                fr.onerror = reject;
-                fr.readAsDataURL(blob);
-            });
-        } else {
-            // Try CORS fetch; if blocked, fall back to inline SVG (guaranteed to render)
-            const res = await fetch(u.href, { mode: 'cors', credentials: 'omit' });
-            if (!res.ok) throw new Error('CORS fetch blocked');
-            const blob = await res.blob();
-            return await new Promise((resolve, reject) => {
-                const fr = new FileReader();
-                fr.onload = () => resolve(fr.result);
-                fr.onerror = reject;
-                fr.readAsDataURL(blob);
-            });
-        }
+        // When opened via file://, avoid network/CORS attempts
+        if (location.protocol === 'file:') return LOGO_BASE64_FALLBACK;
+
+        const res = await fetch(u.href, { mode: 'cors', credentials: 'omit' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        const blob = await res.blob();
+        return await new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result);
+            fr.onerror = reject;
+            fr.readAsDataURL(blob);
+        });
     } catch {
         return LOGO_BASE64_FALLBACK;
     }
