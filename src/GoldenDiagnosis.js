@@ -17,7 +17,7 @@
 // ====================================*/
 const I18N = {
     pt: {
-        titles: { form: 'Diagnóstico de Ouro', mentorship: 'Medicina Tradicional Chinesa' },
+        titles: { form: 'Diagnóstico de', mentorship: 'Medicina Tradicional Chinesa' },
         footer: { confidential: 'Copyright © ' + new Date().getFullYear() + ' Maria Aparecida Pereira Santos | Diagnóstico de Ouro - Medicina Tradicional Chinesa' },
         ui: {
             about: 'Sobre',
