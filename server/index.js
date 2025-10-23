@@ -1,4 +1,4 @@
-/*// ====================================== Jesse Avila de Freitas
+/*// ======================================
    // 🚀 Express server
    // - /health (ping)
    // - /api/render-pdf (HTML → PDF)
