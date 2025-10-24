@@ -2403,9 +2403,7 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
             try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
         }
 
-        currentExportData = exportData; currentLogoSrc = logoSrc;
         if (isMobileLike()) {
-            // Mobile: generate PDF -> open/share (consistent beauty) then user prints
             const { node, iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
             const { filename, blob } = await generatePdfBlobFromNode(node);
             await openOrSharePdfBlob(blob, filename);
@@ -2414,7 +2412,6 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
             return;
         }
 
-        // Desktop: Paged.js + native print dialog (closest to preview)
         const { iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:true });
         try { iframe.contentWindow.focus(); } catch {}
         try { iframe.contentWindow.print(); } catch {}
@@ -2446,7 +2443,6 @@ async function savePdfUnified(exportData=null, logoSrc=null) {
             try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
         }
 
-        currentExportData = exportData; currentLogoSrc = logoSrc;
         const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
         iframe = result.iframe;
         const { filename, blob } = await generatePdfBlobFromNode(result.node);
@@ -2479,7 +2475,6 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
             try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
         }
 
-        currentExportData = exportData; currentLogoSrc = logoSrc;
         const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
         iframe = result.iframe;
 
@@ -2490,7 +2485,6 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
         const safeName = (rawName || (currentLanguage==='pt'?'Paciente':'Patient')).replace(/[^a-zA-Z0-9]/g,'_');
         const message = t('share.message', { name: rawName || safeName });
 
-        // Preferred: Web Share Level 2 with files (shows WhatsApp if installed)
         try {
             if (navigator.canShare && navigator.canShare({ files:[file] })) {
                 await navigator.share({ files:[file], title: filename, text: message });
@@ -2499,13 +2493,12 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
             }
         } catch {}
 
-        // Fallback: download PDF + open wa.me with message
         await triggerDownloadBlob(filename, blob);
         const e164 = phoneE164IfPossible();
         const base = e164 ? `https://wa.me/${e164}` : 'https://wa.me/';
         const url = `${base}?text=${encodeURIComponent(`${message}\n\n📎 ${filename}`)}`;
         window.open(url, '_blank');
-        showToast(currentLanguage==='pt' ? 'PDF baixado e WhatsApp aberto.' : 'PDF downloaded and WhatsApp opened.', 'success');
+        showToast(t('toasts.pdfDownloadedAndOpeningWhatsapp') || (currentLanguage==='pt' ? 'PDF baixado. Abrindo WhatsApp...' : 'PDF downloaded. Opening WhatsApp...'), 'success');
     } catch (err) {
         console.error('sharePdfToWhatsApp error:', err);
         showToast(t('errors.shareFailed'), 'error');
@@ -2519,86 +2512,6 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
 /*// ====================================
 // 🧰 PDF generation helpers
 // ====================================*/
-/*// ------------------------------------
-// 🧾 Legacy Online Template (optional fallback when html2pdf clone fails)
-//  — Builds a self-contained block similar to your “online working” format
-//  — Uses exportData (not global filledData) so we don’t break variables
-//  — Kept minimal inline styles to avoid CORS/font issues during fallback
-// ------------------------------------*/
-function generatePDFContentLegacy(exportData, logoSrc) {
-    try {
-        const patientData = readStore?.() || {};
-        const today = new Date();
-        const dateStr = currentLanguage === 'pt'
-            ? today.toLocaleDateString('pt-BR')
-            : today.toLocaleDateString('en-US');
-
-        // Map patient info (compatible with your existing keys)
-        const items = [
-            ['patientName', L('patientName')],
-            ['birthDate',  L('birthDate')],
-            ['phone',      L('phone')],
-            ['email',      L('email')],
-            ['address',    L('address')],
-            ['profession', L('profession')],
-        ].map(([k, label]) => {
-            let v = patientData?.[k];
-            if (k === 'birthDate' && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
-                const [y,m,d] = v.split('-'); v = (currentLanguage==='pt') ? `${d}/${m}/${y}` : `${m}/${d}/${y}`;
-            }
-            return v ? `<p><strong>${escapeHTML(String(label))}:</strong> ${escapeHTML(String(v))}</p>` : '';
-        }).join('');
-
-        const patientBlock = items.trim()
-            ? `
-            <div style="background:#F5F5F5;padding:15px;border-radius:8px;margin-bottom:25px;border-left:5px solid #b28e55;">
-                <h3 style="color:#b22222;margin:0 0 10px 0;border-bottom:1px solid #ddd;padding-bottom:5px;">${escapeHTML(String(L('patientInfo')))}</h3>
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;color:#333!important;">
-                    ${items}
-                </div>
-            </div>
-            ` : '';
-
-        // Sections
-        const sections = Array.isArray(exportData?.sections) ? exportData.sections : [];
-        const sectionsHTML = sections.map(sec => {
-            if (!sec?.entries?.length) return '';
-            const inner = sec.entries.map(e => {
-                let val = (e?.value ?? '');
-                if (typeof val === 'boolean') { val = val ? (currentLanguage==='pt'?'Sim':'Yes') : (currentLanguage==='pt'?'Não':'No'); }
-                return `<p style="margin:5px 0;"><strong>${escapeHTML(String(e?.label ?? ''))}:</strong> ${escapeHTML(String(val))}</p>`;
-            }).join('');
-            return inner.trim()
-                ? `
-                <div style="page-break-inside:avoid;margin-bottom:25px;">
-                    <h2 style="color:#b28e55;border-bottom:1px solid #ddd;padding-bottom:5px;margin:20px 0 15px 0;">${escapeHTML(String(sec?.title ?? ''))}</h2>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;color:#333!important;">
-                        ${inner}
-                    </div>
-                </div>
-                ` : '';
-        }).join('');
-
-        const titleMain = t('titles.form');
-        const titleSub  = t('titles.mentorship');
-        return `
-            <div style="font-family:Arial, sans-serif;max-width:800px;margin:0 auto;padding:20px;">
-                <div style="text-align:center;margin-bottom:30px;">
-                    <img src="${logoSrc}" style="max-width:150px;height:auto;" alt="Logo">
-                    <h1 style="color:#b28e55;margin:10px 0;">${escapeHTML(String(titleMain))}</h1>
-                    <h2 style="color:#b22222;margin:5px 0;">${escapeHTML(String(titleSub))}</h2>
-                    <p style="color:#333;font-size:.9em;">${escapeHTML(String(L('generatedOn')))} ${escapeHTML(String(dateStr))}</p>
-                </div>
-                ${patientBlock}
-                ${sectionsHTML}
-            </div>
-        `;
-    } catch (e) {
-        console.warn('generatePDFContentLegacy failed', e);
-        return '<div style="padding:20px;font-family:Arial,sans-serif;">PDF preview unavailable.</div>';
-    }
-}
-
 async function generatePdfBlobFromNode(node) {
     await ensureHtml2PdfLibrary();
 
@@ -2610,12 +2523,15 @@ async function generatePdfBlobFromNode(node) {
     const width  = Math.max(node.scrollWidth, 794);
     const height = Math.max(node.scrollHeight, 1123);
 
-    const baseOptions = {
+    // DPI/qualidade: escala adaptativa com teto (evita PDFs gigantes em celulares muito densos)
+    const dpr = Math.max(1, Math.min(3, (window.devicePixelRatio || 1) * (isMobileLike() ? 1.2 : 1.5)));
+
+    const blob = await window.html2pdf().set({
         margin:[14,14,14,14],
         filename,
         image:{ type:'jpeg', quality:0.98 },
         html2canvas:{
-            scale: isMobileLike() ? 2.0 : 2.4,
+            scale: dpr,
             useCORS:true,
             allowTaint:false,
             backgroundColor:'#ffffff',
@@ -2627,42 +2543,24 @@ async function generatePdfBlobFromNode(node) {
             removeContainer:true,
             onclone:(clonedDoc)=>{
                 try{
+                    // Garante que pseudo-elementos decorativos existam (mantém o visual), mas sem sombras pesadas
                     const s = clonedDoc.createElement('style');
                     s.id = 'pdf-pseudo-reset';
-                    s.textContent = '*::before,*::after{content:"" !important} *{box-shadow:none !important;filter:none !important;}';
+                    s.textContent = '*{box-shadow:none !important;filter:none !important;}';
                     clonedDoc.head.appendChild(s);
+                    // Remove ícones FA para evitar tofu em algumas renderizações
                     clonedDoc.querySelectorAll('i[class*="fa-"], i.fa, i.fas, i.far, i.fab').forEach(el => el.remove());
                 }catch{}
             }
         },
         jsPDF:{ unit:'mm', format:'a4', orientation:'portrait', compress:true },
         pagebreak:{ mode:['css','legacy'], before:'.section', avoid:'.entry, .pitem, .table-grid tr, .table-grid td' }
-    };
+    }).from(node).output('blob');
 
-    try {
-        const blob = await window.html2pdf().set(baseOptions).from(node).output('blob');
-        return { filename, blob };
-    } catch (primaryErr) {
-        console.warn('Primary html2pdf render failed, falling back to legacy inline template...', primaryErr);
-        try {
-            const container = document.createElement('div');
-            const logoSrc = (typeof currentLogoSrc === 'string' && currentLogoSrc) ? currentLogoSrc : (window.LOGO_BASE64_FALLBACK || '');
-            const data = currentExportData || collectFilledData?.() || {};
-            container.innerHTML = generatePDFContentLegacy(data, logoSrc);
-            const blob = await window.html2pdf().set({
-                ...baseOptions,
-                pagebreak: { mode:['legacy'] } // simpler rules in fallback
-            }).from(container).output('blob');
-            return { filename, blob };
-        } catch (fallbackErr) {
-            console.error('Fallback html2pdf render also failed:', fallbackErr);
-            throw primaryErr;
-        }
-    }
+    return { filename, blob };
 }
 
 async function openOrSharePdfBlob(blob, filename) {
-    // Desktop → download. Mobile → try share, else open + download.
     try {
         const file = new File([blob], filename, { type: 'application/pdf' });
         if (isMobileLike() && navigator.canShare && navigator.canShare({ files:[file] })) {
@@ -2677,7 +2575,6 @@ async function openOrSharePdfBlob(blob, filename) {
 
     await triggerDownloadBlob(filename, blob);
 
-    // Also open a viewer tab if popups aren’t blocked (helps printing on phones without share)
     try {
         const url = URL.createObjectURL(blob);
         const win = window.open(url, '_blank');
@@ -2707,7 +2604,6 @@ async function showPreviewModal(exportData, logoSrc) {
     currentExportData = exportData;
     currentLogoSrc = logoSrc;
 
-    // If a previous modal exists, close it first for idempotency
     try { closePreviewModal(); } catch {}
 
     const modal = document.createElement('div');
@@ -2742,7 +2638,6 @@ async function showPreviewModal(exportData, logoSrc) {
     `;
     document.body.appendChild(modal);
 
-    // Lock page scroll while modal is open
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -2760,7 +2655,6 @@ async function showPreviewModal(exportData, logoSrc) {
     };
     iframe.srcdoc = docHTML;
 
-    // Handlers — NOTE: only the “X” closes the modal now (Edit will close explicitly)
     const onCloseClick = () => closePreviewModal();
 
     const withBusy = async (btn, fn) => {
@@ -2790,10 +2684,8 @@ async function showPreviewModal(exportData, logoSrc) {
         );
     };
 
-    // “Edit” now returns to the form: close modal, focus a good field, and highlight briefly
     const onEditClick = async (e) => {
         await withBusy(e.currentTarget, async () => {
-            // Inject a tiny highlight style once
             if (!document.getElementById('gd-edit-flash-style')) {
                 const s = document.createElement('style');
                 s.id = 'gd-edit-flash-style';
@@ -2806,43 +2698,27 @@ async function showPreviewModal(exportData, logoSrc) {
                 `;
                 document.head.appendChild(s);
             }
-
-            // Close preview first (restores scroll via cleanup)
             closePreviewModal();
-
-            // Wait a tick so underlying layout is ready, then focus a sensible target
             await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
-
-            // Preference order: explicit target, autofocus, first enabled text-like control
             const findEditTarget = () => {
                 const explicit = document.querySelector('[data-edit-focus]');
                 if (explicit) return explicit;
-
                 const auto = document.querySelector('[autofocus]');
                 if (auto && !auto.disabled && auto.offsetParent !== null) return auto;
-
                 const candidates = Array.from(document.querySelectorAll('input, textarea, select'));
                 for (const el of candidates) {
                     if (el.disabled) continue;
                     if (el.type === 'hidden') continue;
-                    if (el.offsetParent === null) continue; // not visible
+                    if (el.offsetParent === null) continue;
                     return el;
                 }
                 return null;
             };
-
             const target = findEditTarget();
             if (target) {
-                try {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-                } catch {}
-                try {
-                    target.focus({ preventScroll: true });
-                } catch {}
-                try {
-                    target.classList.add('gd-edit-flash');
-                    setTimeout(() => target.classList.remove('gd-edit-flash'), 1200);
-                } catch {}
+                try { target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch {}
+                try { target.focus({ preventScroll: true }); } catch {}
+                try { target.classList.add('gd-edit-flash'); setTimeout(() => target.classList.remove('gd-edit-flash'), 1200); } catch {}
             }
         });
     };
@@ -2853,16 +2729,11 @@ async function showPreviewModal(exportData, logoSrc) {
     modal.querySelector('#preview-print-btn').addEventListener('click', onPrintClick);
     modal.querySelector('#preview-whatsapp-btn').addEventListener('click', onWhatsClick);
 
-    // DO NOT close on backdrop click or ESC anymore
-    // (No backdrop or keydown listeners registered)
-
     modal.style.display = 'block';
 
-    // Move focus to close button for accessibility
     const closeBtn = modal.querySelector('.preview-close');
     try { closeBtn?.focus(); } catch {}
 
-    // Cleanup function to remove listeners and restore scroll when X is clicked
     _previewCleanup = () => {
         try { modal.querySelector('.preview-close')?.removeEventListener('click', onCloseClick); } catch {}
         try { modal.querySelector('#preview-edit-btn')?.removeEventListener('click', onEditClick); } catch {}
