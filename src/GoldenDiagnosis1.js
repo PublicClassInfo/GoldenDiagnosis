@@ -1937,246 +1937,81 @@ function collectFilledData() {
 
 
 /*// ====================================
-// 🖼️ Logo Helpers (local/remote/fallback) — improved, drop-in compatible
+// 🖼️ Logo Helpers (local/remote/fallback)
 // ====================================*/
+const LOGO_BASE64_FALLBACK = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjIwIiBoZWlnaHQ9IjIyMCIgdmlld0JveD0iMCAwIDIyMCAyMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHJhZGlhbEdyYWRpZW50IGlkPSJnIiBjeD0iNTAlIiBjeT0iNTAlIiByPSI3MCI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzEyYTA4ZiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzBmNzY2ZSIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPjxjaXJjbGUgY3g9IjExMCIgY3k9IjExMCIgcj0iMTAwIiBmaWxsPSJ1cmwoI2cpIiBzdHJva2U9IiNkNGFmMzciIHN0cm9rZS13aWR0aD0iMTAiLz48Y2lyY2xlIGN4PSIxMTAiIGN5PSIxMTAiIHI9Ijg0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmMmUzYTYiIHN0cm9rZS13aWR0aD0iMyIgb3BhY2l0eT0iLjgiLz48dGV4dCB4PSIxMTAiIHk9IjEzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Ik5vdG8gU2VyaWYgU0MsIHNlcmlmIiBmb250LXNpemU9Ijk2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjYmYxZTJlIj7kuK3lvI08L3RleHQ+PC9zdmc+";
 
-/** Inline fallback kept for strict backwards compatibility */
-const LOGO_BASE64_FALLBACK =
-  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjIwIiBoZWlnaHQ9IjIyMCIgdmlld0JveD0iMCAwIDIyMCAyMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHJhZGlhbEdyYWRpZW50IGlkPSJnIiBjeD0iNTAlIiBjeT0iNTAlIiByPSI3MCI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzEyYTA4ZiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzBmNzY2ZSIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPjxjaXJjbGUgY3g9IjExMCIgY3k9IjExMCIgcj0iMTAwIiBmaWxsPSJ1cmwoI2cpIiBzdHJva2U9IiNkNGFmMzciIHN0cm9rZS13aWR0aD0iMTAiLz48Y2lyY2xlIGN4PSIxMTAiIGN5PSIxMTAiIHI9Ijg0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmMmUzYTYiIHN0cm9rZS13aWR0aD0iMyIgb3BhY2l0eT0iLjgiLz48dGV4dCB4PSIxMTAiIHk9IjEzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Ik5vdG8gU2VyaWYgU0MsIHNlcmlmIiBmb250LXNpemU9Ijk2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjYmYxZTJlIj7kuK3lvI08L3RleHQ+PC9zdmc+";
-
-/** Pin a known-good commit; fall back to main if needed */
+// Pin a known-good commit; fall back to main if needed
 const REPO_COMMIT_SHA = "18a7e5a28929655ad6bc1bc81d35b3bb6cb3505d";
 
-/* internal, non-breaking enhancements */
-const _logoRuntimeCache = {
-  chosenUrlPromise: null,                        // dedupe concurrent lookups
-  dataUrlCache: new Map(),                       // in-memory URL→dataURL
-  ssKey: "gd:logo:url@v2",                       // sessionStorage cache (URL)
-  lsPrefix: "gd:dataurl:",                       // localStorage cache (dataURL)
-  lsTTLms: 7 * 24 * 60 * 60 * 1000               // 7 days
-};
-
-/**
- * Try to choose a working logo URL with robust fallbacks.
- * Keeps your original selection order, but:
- *  - expands local candidates a bit
- *  - caches the result for the session
- *  - dedupes concurrent calls
- *  - survives file:// and CORS issues gracefully
- */
 async function chooseWorkingLogoSrc() {
-  // If a logo is already on the page, respect it.
-  const el = document.getElementById("brandLogo") || document.querySelector("img.logo, .site-logo img");
-  if (el?.src) return el.src;
+    const el = document.getElementById('brandLogo') || document.querySelector('img.logo, .site-logo img');
+    if (el?.src) return el.src;
 
-  // Deduplicate concurrent calls
-  if (_logoRuntimeCache.chosenUrlPromise) return _logoRuntimeCache.chosenUrlPromise;
-
-  _logoRuntimeCache.chosenUrlPromise = (async () => {
-    // Session cache (fast path)
-    try {
-      const cached = sessionStorage.getItem(_logoRuntimeCache.ssKey);
-      if (cached) {
-        // quick verify (short timeout)
-        if (await preloadImage(cached, { cross: isCrossOrigin(cached), timeoutMs: 1500 }).catch(() => false)) {
-          return cached;
-        }
-      }
-    } catch {}
-
-    // Prefer source repo layout first (/src/Images), then generic paths
+    // Prefer source repo layout first (/src/Images), then generic /Images paths
     const local = [
-      "/src/Images/MariaLogo.png",
-      "src/Images/MariaLogo.png",
-      "/Images/MariaLogo.png",
-      "Images/MariaLogo.png",
-      "./Images/MariaLogo.png",
-      // broaden a little without breaking anything
-      "/src/images/MariaLogo.png",
-      "/images/MariaLogo.png",
-      "/logo.png",
-      "logo.png"
+        '/src/Images/MariaLogo.png',
+        'src/Images/MariaLogo.png',
+        '/Images/MariaLogo.png',
+        'Images/MariaLogo.png',
+        './Images/MariaLogo.png'
     ];
 
     // CDN (pinned commit first, then main)
     const remote = [
-      `https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@${REPO_COMMIT_SHA}/src/Images/MariaLogo.png`,
-      "https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/Images/MariaLogo.png"
+        `https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@${REPO_COMMIT_SHA}/src/Images/MariaLogo.png`,
+        'https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/Images/MariaLogo.png'
     ];
 
-    // Try locals
     for (const url of local) {
-      if (await preloadImage(url, { cross: false }).catch(() => false)) {
-        try { sessionStorage.setItem(_logoRuntimeCache.ssKey, url); } catch {}
-        return url;
-      }
+        if (await preloadImage(url).catch(() => false)) return url;
     }
-    // Try CDN (with CORS)
     for (const url of remote) {
-      if (await preloadImage(url, { cross: true }).catch(() => false)) {
-        try { sessionStorage.setItem(_logoRuntimeCache.ssKey, url); } catch {}
-        return url;
-      }
+        if (await preloadImage(url, true).catch(() => false)) return url;
     }
-    // Nothing worked → dynamic fallback (kept API)
-    const fallback = buildFallbackLogoDataURL();
-    try { sessionStorage.setItem(_logoRuntimeCache.ssKey, fallback); } catch {}
-    return fallback;
-  })();
-
-  return _logoRuntimeCache.chosenUrlPromise;
-}
-
-/**
- * Preload an image with timeout and decode() when available.
- * @param {string} url
- * @param {{cross?: boolean, timeoutMs?: number}} opts
- */
-function preloadImage(url, opts = {}) {
-  const { cross = false, timeoutMs = 6000 } = opts;
-
-  return new Promise((resolve, reject) => {
-    try {
-      const img = new Image();
-      if (cross) img.crossOrigin = "anonymous";
-
-      let done = false;
-      const finish = (ok) => { if (!done) { done = true; ok ? resolve(true) : reject(false); } };
-
-      const timer = setTimeout(() => finish(false), timeoutMs);
-
-      img.onload = async () => {
-        clearTimeout(timer);
-        // Prefer decode() to ensure it can actually render
-        try {
-          if (typeof img.decode === "function") {
-            await img.decode();
-          }
-        } catch {/* ignore decode quirks */}
-        finish(true);
-      };
-      img.onerror = () => { clearTimeout(timer); finish(false); };
-
-      // Be tolerant of relative URLs
-      const u = new URL(url, location.href);
-      img.src = u.href;
-    } catch {
-      reject(false);
-    }
-  });
-}
-
-/**
- * Build a nicer inline fallback. Keeps your constant as the final fallback,
- * but tries to generate a tiny SVG with initials when we can infer a name.
- * No breaking dependencies: all reads are guarded by try/catch.
- */
-function buildFallbackLogoDataURL() {
-  try {
-    // Try to pull a short label (clinic name, title, or patient initials) if available
-    const data = (typeof readStore === "function" ? (readStore() || {}) : {}) || {};
-    const raw =
-      data?.clinicName ||
-      (typeof t === "function" ? t("titles.form") : "") ||
-      data?.patientName ||
-      "";
-    const initials = String(raw).trim().split(/\s+/).slice(0, 2).map(s => s[0] || "").join("").toUpperCase().slice(0, 3) || "GD";
-
-    const svg =
-      `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220">
-        <defs>
-          <radialGradient id="g" cx="50%" cy="50%" r="70%">
-            <stop offset="0%" stop-color="#12a08f"/>
-            <stop offset="100%" stop-color="#0f766e"/>
-          </radialGradient>
-        </defs>
-        <circle cx="110" cy="110" r="100" fill="url(#g)" stroke="#d4af37" stroke-width="10"/>
-        <circle cx="110" cy="110" r="84" fill="none" stroke="#f2e3a6" stroke-width="3" opacity=".8"/>
-        <text x="110" y="130" text-anchor="middle" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
-              font-size="72" font-weight="800" fill="#fff">${escapeXML(initials)}</text>
-      </svg>`;
-
-    return "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg)));
-  } catch {
     return LOGO_BASE64_FALLBACK;
-  }
 }
 
-/**
- * Convert an image URL to a data URL when possible.
- * - Returns input immediately if it's already a data: URL.
- * - Caches successful conversions in localStorage (7 days).
- * - Avoids network when running under file://
- */
-async function toDataURL(url) {
-  /*// ------------------------------------
-  // 🖼️ Convert image to data URL when possible; otherwise fall back to inline SVG
-  // ------------------------------------*/
-  if (!url) return LOGO_BASE64_FALLBACK;
-  if (String(url).startsWith("data:")) return url;
-
-  // In-memory cache first
-  if (_logoRuntimeCache.dataUrlCache.has(url)) {
-    return _logoRuntimeCache.dataUrlCache.get(url);
-  }
-
-  // LocalStorage cache with TTL
-  try {
-    const key = _logoRuntimeCache.lsPrefix + url;
-    const cached = JSON.parse(localStorage.getItem(key) || "null");
-    if (cached && (Date.now() - cached.ts) < _logoRuntimeCache.lsTTLms && typeof cached.data === "string") {
-      _logoRuntimeCache.dataUrlCache.set(url, cached.data);
-      return cached.data;
-    }
-  } catch {}
-
-  // When opened via file://, avoid network/CORS attempts
-  if (location.protocol === "file:") return buildFallbackLogoDataURL();
-
-  // Fetch and convert
-  try {
-    const u = new URL(url, location.href);
-    const res = await fetch(u.href, { mode: "cors", credentials: "omit", cache: "force-cache" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const blob = await res.blob();
-
-    const dataUrl = await new Promise((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(fr.result);
-      fr.onerror = () => reject(new Error("readAsDataURL failed"));
-      fr.readAsDataURL(blob);
+function preloadImage(url, cross = false, timeoutMs = 6000) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        if (cross) img.crossOrigin = 'anonymous';
+        const t = setTimeout(() => reject(false), timeoutMs);
+        img.onload = () => { clearTimeout(t); resolve(true); };
+        img.onerror = () => { clearTimeout(t); reject(false); };
+        img.src = url;
     });
+}
 
-    // Cache it
+function buildFallbackLogoDataURL() {
+    return LOGO_BASE64_FALLBACK;
+}
+
+async function toDataURL(url) {
+    /*// ------------------------------------
+    // 🖼️ Convert image to data URL when possible; otherwise fall back to inline SVG
+    // ------------------------------------*/
+    if (!url) return LOGO_BASE64_FALLBACK;
+
     try {
-      const key = _logoRuntimeCache.lsPrefix + url;
-      localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: dataUrl }));
-    } catch {}
+        const u = new URL(url, location.href);
 
-    _logoRuntimeCache.dataUrlCache.set(url, dataUrl);
-    return dataUrl;
-  } catch {
-    // Final fallback
-    return buildFallbackLogoDataURL();
-  }
-}
+        // When opened via file://, avoid network/CORS attempts
+        if (location.protocol === 'file:') return LOGO_BASE64_FALLBACK;
 
-/* ---------- tiny helpers ---------- */
+        const res = await fetch(u.href, { mode: 'cors', credentials: 'omit' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
 
-function escapeXML(s) {
-  return String(s)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function isCrossOrigin(url) {
-  try {
-    const u = new URL(url, location.href);
-    return u.origin !== location.origin;
-  } catch {
-    return false;
-  }
+        const blob = await res.blob();
+        return await new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result);
+            fr.onerror = reject;
+            fr.readAsDataURL(blob);
+        });
+    } catch {
+        return LOGO_BASE64_FALLBACK;
+    }
 }
 
 /*// ====================================
@@ -2568,6 +2403,7 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
             try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
         }
 
+        currentExportData = exportData; currentLogoSrc = logoSrc;
         if (isMobileLike()) {
             // Mobile: generate PDF -> open/share (consistent beauty) then user prints
             const { node, iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
@@ -2610,6 +2446,7 @@ async function savePdfUnified(exportData=null, logoSrc=null) {
             try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
         }
 
+        currentExportData = exportData; currentLogoSrc = logoSrc;
         const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
         iframe = result.iframe;
         const { filename, blob } = await generatePdfBlobFromNode(result.node);
@@ -2642,6 +2479,7 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
             try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
         }
 
+        currentExportData = exportData; currentLogoSrc = logoSrc;
         const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
         iframe = result.iframe;
 
@@ -2681,6 +2519,86 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
 /*// ====================================
 // 🧰 PDF generation helpers
 // ====================================*/
+/*// ------------------------------------
+// 🧾 Legacy Online Template (optional fallback when html2pdf clone fails)
+//  — Builds a self-contained block similar to your “online working” format
+//  — Uses exportData (not global filledData) so we don’t break variables
+//  — Kept minimal inline styles to avoid CORS/font issues during fallback
+// ------------------------------------*/
+function generatePDFContentLegacy(exportData, logoSrc) {
+    try {
+        const patientData = readStore?.() || {};
+        const today = new Date();
+        const dateStr = currentLanguage === 'pt'
+            ? today.toLocaleDateString('pt-BR')
+            : today.toLocaleDateString('en-US');
+
+        // Map patient info (compatible with your existing keys)
+        const items = [
+            ['patientName', L('patientName')],
+            ['birthDate',  L('birthDate')],
+            ['phone',      L('phone')],
+            ['email',      L('email')],
+            ['address',    L('address')],
+            ['profession', L('profession')],
+        ].map(([k, label]) => {
+            let v = patientData?.[k];
+            if (k === 'birthDate' && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+                const [y,m,d] = v.split('-'); v = (currentLanguage==='pt') ? `${d}/${m}/${y}` : `${m}/${d}/${y}`;
+            }
+            return v ? `<p><strong>${escapeHTML(String(label))}:</strong> ${escapeHTML(String(v))}</p>` : '';
+        }).join('');
+
+        const patientBlock = items.trim()
+            ? `
+            <div style="background:#F5F5F5;padding:15px;border-radius:8px;margin-bottom:25px;border-left:5px solid #b28e55;">
+                <h3 style="color:#b22222;margin:0 0 10px 0;border-bottom:1px solid #ddd;padding-bottom:5px;">${escapeHTML(String(L('patientInfo')))}</h3>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;color:#333!important;">
+                    ${items}
+                </div>
+            </div>
+            ` : '';
+
+        // Sections
+        const sections = Array.isArray(exportData?.sections) ? exportData.sections : [];
+        const sectionsHTML = sections.map(sec => {
+            if (!sec?.entries?.length) return '';
+            const inner = sec.entries.map(e => {
+                let val = (e?.value ?? '');
+                if (typeof val === 'boolean') { val = val ? (currentLanguage==='pt'?'Sim':'Yes') : (currentLanguage==='pt'?'Não':'No'); }
+                return `<p style="margin:5px 0;"><strong>${escapeHTML(String(e?.label ?? ''))}:</strong> ${escapeHTML(String(val))}</p>`;
+            }).join('');
+            return inner.trim()
+                ? `
+                <div style="page-break-inside:avoid;margin-bottom:25px;">
+                    <h2 style="color:#b28e55;border-bottom:1px solid #ddd;padding-bottom:5px;margin:20px 0 15px 0;">${escapeHTML(String(sec?.title ?? ''))}</h2>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;color:#333!important;">
+                        ${inner}
+                    </div>
+                </div>
+                ` : '';
+        }).join('');
+
+        const titleMain = t('titles.form');
+        const titleSub  = t('titles.mentorship');
+        return `
+            <div style="font-family:Arial, sans-serif;max-width:800px;margin:0 auto;padding:20px;">
+                <div style="text-align:center;margin-bottom:30px;">
+                    <img src="${logoSrc}" style="max-width:150px;height:auto;" alt="Logo">
+                    <h1 style="color:#b28e55;margin:10px 0;">${escapeHTML(String(titleMain))}</h1>
+                    <h2 style="color:#b22222;margin:5px 0;">${escapeHTML(String(titleSub))}</h2>
+                    <p style="color:#333;font-size:.9em;">${escapeHTML(String(L('generatedOn')))} ${escapeHTML(String(dateStr))}</p>
+                </div>
+                ${patientBlock}
+                ${sectionsHTML}
+            </div>
+        `;
+    } catch (e) {
+        console.warn('generatePDFContentLegacy failed', e);
+        return '<div style="padding:20px;font-family:Arial,sans-serif;">PDF preview unavailable.</div>';
+    }
+}
+
 async function generatePdfBlobFromNode(node) {
     await ensureHtml2PdfLibrary();
 
@@ -2692,7 +2610,7 @@ async function generatePdfBlobFromNode(node) {
     const width  = Math.max(node.scrollWidth, 794);
     const height = Math.max(node.scrollHeight, 1123);
 
-    const blob = await window.html2pdf().set({
+    const baseOptions = {
         margin:[14,14,14,14],
         filename,
         image:{ type:'jpeg', quality:0.98 },
@@ -2719,9 +2637,28 @@ async function generatePdfBlobFromNode(node) {
         },
         jsPDF:{ unit:'mm', format:'a4', orientation:'portrait', compress:true },
         pagebreak:{ mode:['css','legacy'], before:'.section', avoid:'.entry, .pitem, .table-grid tr, .table-grid td' }
-    }).from(node).output('blob');
+    };
 
-    return { filename, blob };
+    try {
+        const blob = await window.html2pdf().set(baseOptions).from(node).output('blob');
+        return { filename, blob };
+    } catch (primaryErr) {
+        console.warn('Primary html2pdf render failed, falling back to legacy inline template...', primaryErr);
+        try {
+            const container = document.createElement('div');
+            const logoSrc = (typeof currentLogoSrc === 'string' && currentLogoSrc) ? currentLogoSrc : (window.LOGO_BASE64_FALLBACK || '');
+            const data = currentExportData || collectFilledData?.() || {};
+            container.innerHTML = generatePDFContentLegacy(data, logoSrc);
+            const blob = await window.html2pdf().set({
+                ...baseOptions,
+                pagebreak: { mode:['legacy'] } // simpler rules in fallback
+            }).from(container).output('blob');
+            return { filename, blob };
+        } catch (fallbackErr) {
+            console.error('Fallback html2pdf render also failed:', fallbackErr);
+            throw primaryErr;
+        }
+    }
 }
 
 async function openOrSharePdfBlob(blob, filename) {
