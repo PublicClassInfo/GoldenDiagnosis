@@ -2347,7 +2347,6 @@ function injectPrintFixes() {
     s.id = 'gd-print-fixes';
     s.textContent = `
         .section { break-inside:auto !important; page-break-inside:auto !important; }
-        .patient, .pitem, .entry { break-inside:avoid !important; page-break-inside:avoid !important; }
         .no-split { break-inside:avoid !important; page-break-inside:avoid !important; }
         .table-grid thead { display:table-header-group !important; }
         .table-grid tbody { display:table-row-group !important; }
@@ -2418,7 +2417,6 @@ function buildDocHTML(exportData, logoSrc) {
     <html lang="${currentLanguage}">
         <head>
             <meta charset="UTF-8" />
-            <meta http-equiv="X-UA-Compatible" content="IE=edge" />
             <meta name="viewport" content="width=device-width,initial-scale=1" />
             <meta name="color-scheme" content="light only" />
             <title>${t('titles.form')}</title>
@@ -2462,7 +2460,7 @@ async function ensureHtml2PdfLibrary() {
     });
 }
 
-async function waitForAssetsWindow(w, timeoutMs = 6000) {
+async function waitForAssetsWindow(w, timeoutMs = 5000) {
     try {
         const doc = w.document;
         const imgs = Array.from(doc.images || []);
@@ -2571,7 +2569,7 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
         }
 
         if (isMobileLike()) {
-            /* Mobile: render PDF blob, open viewer/share; user prints from viewer */
+            // Mobile: generate PDF -> open/share (consistent beauty) then user prints
             const { node, iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
             const { filename, blob } = await generatePdfBlobFromNode(node);
             await openOrSharePdfBlob(blob, filename);
@@ -2580,7 +2578,7 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
             return;
         }
 
-        /* Desktop: Paged.js + native print dialog */
+        // Desktop: Paged.js + native print dialog (closest to preview)
         const { iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:true });
         try { iframe.contentWindow.focus(); } catch {}
         try { iframe.contentWindow.print(); } catch {}
@@ -2614,7 +2612,6 @@ async function savePdfUnified(exportData=null, logoSrc=null) {
 
         const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
         iframe = result.iframe;
-
         const { filename, blob } = await generatePdfBlobFromNode(result.node);
         await openOrSharePdfBlob(blob, filename);
         showToast(t('toasts.pdfSaved') || (currentLanguage==='pt' ? 'PDF pronto.' : 'PDF ready.'), 'success');
@@ -2655,7 +2652,7 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
         const safeName = (rawName || (currentLanguage==='pt'?'Paciente':'Patient')).replace(/[^a-zA-Z0-9]/g,'_');
         const message = t('share.message', { name: rawName || safeName });
 
-        /* Preferred: Web Share Level 2 with files (Android/iOS — WhatsApp shows up) */
+        // Preferred: Web Share Level 2 with files (shows WhatsApp if installed)
         try {
             if (navigator.canShare && navigator.canShare({ files:[file] })) {
                 await navigator.share({ files:[file], title: filename, text: message });
@@ -2664,20 +2661,12 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
             }
         } catch {}
 
-        /* Fallback: download + open WhatsApp link (desktop/mobile without file share) */
+        // Fallback: download PDF + open wa.me with message
         await triggerDownloadBlob(filename, blob);
-        try { await navigator.clipboard?.writeText?.(`${message}\n\n📎 ${filename}`); } catch {}
-
         const e164 = phoneE164IfPossible();
         const base = e164 ? `https://wa.me/${e164}` : 'https://wa.me/';
-        const text = encodeURIComponent(`${message}\n\n📎 ${filename}`);
-        const candidates = [
-            `whatsapp://send?text=${text}${e164 ? `&phone=${e164}` : ''}`,
-            `${base}?text=${text}`
-        ];
-        for (const u of candidates) {
-            try { window.open(u, '_blank'); break; } catch {}
-        }
+        const url = `${base}?text=${encodeURIComponent(`${message}\n\n📎 ${filename}`)}`;
+        window.open(url, '_blank');
         showToast(currentLanguage==='pt' ? 'PDF baixado e WhatsApp aberto.' : 'PDF downloaded and WhatsApp opened.', 'success');
     } catch (err) {
         console.error('sharePdfToWhatsApp error:', err);
@@ -2703,17 +2692,14 @@ async function generatePdfBlobFromNode(node) {
     const width  = Math.max(node.scrollWidth, 794);
     const height = Math.max(node.scrollHeight, 1123);
 
-    const scaleTarget = Math.min(2.4, Math.max(1.6, (window.devicePixelRatio || 1)));
-
-    const opts = {
+    const blob = await window.html2pdf().set({
         margin:[14,14,14,14],
         filename,
         image:{ type:'jpeg', quality:0.98 },
         html2canvas:{
-            scale: scaleTarget,
+            scale: isMobileLike() ? 2.0 : 2.4,
             useCORS:true,
             allowTaint:false,
-            imageTimeout: 5000,
             backgroundColor:'#ffffff',
             windowWidth: width,
             windowHeight: height,
@@ -2731,29 +2717,15 @@ async function generatePdfBlobFromNode(node) {
                 }catch{}
             }
         },
-        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait', compress:true, putOnlyUsedFonts:true, floatPrecision:'smart' },
+        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait', compress:true },
         pagebreak:{ mode:['css','legacy'], before:'.section', avoid:'.entry, .pitem, .table-grid tr, .table-grid td' }
-    };
-
-    /* Use the worker API so we can set PDF metadata before generating the blob */
-    const worker = window.html2pdf().set(opts).from(node).toPdf();
-    const pdf = await worker.get('pdf');
-    try {
-        pdf.setProperties({
-            title: filename,
-            subject: title,
-            author: 'Mentoria - Diagnóstico de Ouro',
-            creator: 'GoldenDiagnosis',
-            keywords: 'Anamnese, Diagnóstico, PDF'
-        });
-    } catch {}
-    const blob = await worker.output('blob');
+    }).from(node).output('blob');
 
     return { filename, blob };
 }
 
 async function openOrSharePdfBlob(blob, filename) {
-    /* Desktop → download. Mobile → try share, else open + download. */
+    // Desktop → download. Mobile → try share, else open + download.
     try {
         const file = new File([blob], filename, { type: 'application/pdf' });
         if (isMobileLike() && navigator.canShare && navigator.canShare({ files:[file] })) {
@@ -2768,7 +2740,7 @@ async function openOrSharePdfBlob(blob, filename) {
 
     await triggerDownloadBlob(filename, blob);
 
-    /* Also open a viewer tab if popups aren’t blocked (helps printing on phones without share) */
+    // Also open a viewer tab if popups aren’t blocked (helps printing on phones without share)
     try {
         const url = URL.createObjectURL(blob);
         const win = window.open(url, '_blank');
@@ -2785,6 +2757,232 @@ async function triggerDownloadBlob(filename, blob) {
     a.click();
     a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 30000);
+}
+
+/*// ====================================
+// 🎯 PREVIEW MODAL SYSTEM (keeps your style, closes ONLY on “X”)
+// ====================================*/
+let currentExportData = null;
+let currentLogoSrc = null;
+let _previewCleanup = null;
+
+async function showPreviewModal(exportData, logoSrc) {
+    currentExportData = exportData;
+    currentLogoSrc = logoSrc;
+
+    // If a previous modal exists, close it first for idempotency
+    try { closePreviewModal(); } catch {}
+
+    const modal = document.createElement('div');
+    modal.id = 'golden-preview-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'golden-preview-title');
+    modal.innerHTML = `
+        <div class="preview-modal-content">
+            <div class="preview-modal-header">
+                <h3 id="golden-preview-title">${t('preview.title') || 'Document Preview'}</h3>
+                <span class="preview-close" aria-label="Close" title="Close" type="button">&times;</span>
+            </div>
+            <div class="preview-modal-body">
+                <iframe id="preview-iframe" style="width:100%;height:100%;border:none;"></iframe>
+            </div>
+            <div class="preview-modal-footer">
+                <button id="preview-edit-btn" class="preview-btn preview-btn-edit" type="button">
+                    <i class="fas fa-edit" aria-hidden="true"></i> ${t('preview.edit') || 'Edit'}
+                </button>
+                <button id="preview-pdf-btn" class="preview-btn preview-btn-primary" type="button">
+                    <i class="fas fa-file-pdf" aria-hidden="true"></i> ${t('preview.savePdf') || 'Save PDF'}
+                </button>
+                <button id="preview-print-btn" class="preview-btn preview-btn-primary" type="button">
+                    <i class="fas fa-print" aria-hidden="true"></i> ${t('preview.print') || 'Print'}
+                </button>
+                <button id="preview-whatsapp-btn" class="preview-btn preview-btn-success" type="button">
+                    <i class="fab fa-whatsapp" aria-hidden="true"></i> WhatsApp
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Lock page scroll while modal is open
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const iframe = document.getElementById('preview-iframe');
+    const docHTML = buildDocHTML(exportData, logoSrc);
+
+    iframe.onload = function () {
+        try {
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            const style = iframeDoc.createElement('style');
+            style.textContent = getChineseCulturalStyles();
+            iframeDoc.head.appendChild(style);
+            addCulturalElements(iframeDoc);
+        } catch (e) { console.warn('Could not enhance preview with cultural elements:', e); }
+    };
+    iframe.srcdoc = docHTML;
+
+    // Handlers — NOTE: only the “X” closes the modal now (Edit will close explicitly)
+    const onCloseClick = () => closePreviewModal();
+
+    const withBusy = async (btn, fn) => {
+        if (!btn) return;
+        const prevDisabled = btn.disabled;
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        try { await fn(); } catch {} finally {
+            btn.disabled = prevDisabled;
+            btn.removeAttribute('aria-busy');
+        }
+    };
+
+    const onPdfClick = async (e) => {
+        await withBusy(e.currentTarget, async () =>
+            (savePdfUnified?.(currentExportData, currentLogoSrc) || saveToPDF?.(currentExportData, currentLogoSrc))
+        );
+    };
+    const onPrintClick = async (e) => {
+        await withBusy(e.currentTarget, async () =>
+            (printDocumentUnified?.(currentExportData, currentLogoSrc) || printDocumentPaged?.(currentExportData, currentLogoSrc))
+        );
+    };
+    const onWhatsClick = async (e) => {
+        await withBusy(e.currentTarget, async () =>
+            (sharePdfToWhatsApp?.(currentExportData, currentLogoSrc) || shareViaWhatsApp?.(currentExportData, currentLogoSrc))
+        );
+    };
+
+    // “Edit” now returns to the form: close modal, focus a good field, and highlight briefly
+    const onEditClick = async (e) => {
+        await withBusy(e.currentTarget, async () => {
+            // Inject a tiny highlight style once
+            if (!document.getElementById('gd-edit-flash-style')) {
+                const s = document.createElement('style');
+                s.id = 'gd-edit-flash-style';
+                s.textContent = `
+                    .gd-edit-flash {
+                        outline: 3px solid var(--jade, #0f766e);
+                        outline-offset: 2px;
+                        transition: outline-color .8s ease, outline-offset .8s ease;
+                    }
+                `;
+                document.head.appendChild(s);
+            }
+
+            // Close preview first (restores scroll via cleanup)
+            closePreviewModal();
+
+            // Wait a tick so underlying layout is ready, then focus a sensible target
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+
+            // Preference order: explicit target, autofocus, first enabled text-like control
+            const findEditTarget = () => {
+                const explicit = document.querySelector('[data-edit-focus]');
+                if (explicit) return explicit;
+
+                const auto = document.querySelector('[autofocus]');
+                if (auto && !auto.disabled && auto.offsetParent !== null) return auto;
+
+                const candidates = Array.from(document.querySelectorAll('input, textarea, select'));
+                for (const el of candidates) {
+                    if (el.disabled) continue;
+                    if (el.type === 'hidden') continue;
+                    if (el.offsetParent === null) continue; // not visible
+                    return el;
+                }
+                return null;
+            };
+
+            const target = findEditTarget();
+            if (target) {
+                try {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+                } catch {}
+                try {
+                    target.focus({ preventScroll: true });
+                } catch {}
+                try {
+                    target.classList.add('gd-edit-flash');
+                    setTimeout(() => target.classList.remove('gd-edit-flash'), 1200);
+                } catch {}
+            }
+        });
+    };
+
+    modal.querySelector('.preview-close').addEventListener('click', onCloseClick);
+    modal.querySelector('#preview-edit-btn').addEventListener('click', onEditClick);
+    modal.querySelector('#preview-pdf-btn').addEventListener('click', onPdfClick);
+    modal.querySelector('#preview-print-btn').addEventListener('click', onPrintClick);
+    modal.querySelector('#preview-whatsapp-btn').addEventListener('click', onWhatsClick);
+
+    // DO NOT close on backdrop click or ESC anymore
+    // (No backdrop or keydown listeners registered)
+
+    modal.style.display = 'block';
+
+    // Move focus to close button for accessibility
+    const closeBtn = modal.querySelector('.preview-close');
+    try { closeBtn?.focus(); } catch {}
+
+    // Cleanup function to remove listeners and restore scroll when X is clicked
+    _previewCleanup = () => {
+        try { modal.querySelector('.preview-close')?.removeEventListener('click', onCloseClick); } catch {}
+        try { modal.querySelector('#preview-edit-btn')?.removeEventListener('click', onEditClick); } catch {}
+        try { modal.querySelector('#preview-pdf-btn')?.removeEventListener('click', onPdfClick); } catch {}
+        try { modal.querySelector('#preview-print-btn')?.removeEventListener('click', onPrintClick); } catch {}
+        try { modal.querySelector('#preview-whatsapp-btn')?.removeEventListener('click', onWhatsClick); } catch {}
+        document.body.style.overflow = prevOverflow || '';
+    };
+}
+
+function closePreviewModal() {
+    const modal = document.getElementById('golden-preview-modal');
+    if (!modal) return;
+    modal.style.display = 'none';
+    try { _previewCleanup?.(); } catch {}
+    setTimeout(() => { try { modal.remove(); } catch {} }, 300);
+}
+
+/* Cosmetic styles injected inside the preview iframe */
+function getChineseCulturalStyles() {
+    return `
+        :root{--jade:#0f766e;--gold:#d4af37;--cinnabar:#bf1e2e;--ink:#1f2937;--line:rgba(0,0,0,.1)}
+        .cultural-border{position:fixed;pointer-events:none;z-index:1;width:100%}
+        .top-cultural-border{top:0;left:0;right:0;height:18px;background:linear-gradient(90deg,var(--jade),var(--gold),var(--jade));opacity:.6;z-index:2}
+        .bottom-cultural-border{bottom:0;left:0;right:0;height:18px;background:linear-gradient(90deg,var(--jade),var(--gold),var(--jade));opacity:.6;z-index:2}
+        .cultural-corner{position:fixed;width:26px;height:26px;border:3px solid var(--jade);opacity:.45;background:transparent}
+        .corner-tl{top:22px;left:10px;border-right-color:transparent;border-bottom-color:transparent;border-radius:8px 0 0 0}
+        .corner-tr{top:22px;right:10px;border-left-color:transparent;border-bottom-color:transparent;border-radius:0 8px 0 0}
+        .corner-bl{bottom:22px;left:10px;border-right-color:transparent;border-top-color:transparent;border-radius:0 0 0 8px}
+        .corner-br{bottom:22px;right:10px;border-left-color:transparent;border-top-color:transparent;border-radius:0 0 8px 0}
+        .chinese-pattern{position:absolute;inset:0;opacity:.1;pointer-events:none;z-index:0}
+        .chinese-seal{position:fixed;bottom:26px;right:26px;width:70px;height:70px;border:2px solid var(--cinnabar);border-radius:5px;display:flex;align-items:center;justify-content:center;transform:rotate(5deg);background:rgba(191,30,46,.05);color:var(--cinnabar);font-family:"Noto Serif SC",serif;font-weight:900;font-size:12px;text-align:center;padding:4px;opacity:.8;z-index:2}
+        .preview-mode .page{box-shadow:0 0 24px rgba(0,0,0,.15);margin:20px auto}
+    `;
+}
+
+function addCulturalElements(doc) {
+    const body = doc.body;
+    body.classList.add('preview-mode');
+    const pattern = doc.createElement('div');
+    pattern.className = 'chinese-pattern';
+    body.appendChild(pattern);
+    const topBorder = doc.createElement('div');
+    topBorder.className = 'cultural-border top-cultural-border';
+    body.appendChild(topBorder);
+    const bottomBorder = doc.createElement('div');
+    bottomBorder.className = 'cultural-border bottom-cultural-border';
+    body.appendChild(bottomBorder);
+    ['tl', 'tr', 'bl', 'br'].forEach(c => {
+        const el = doc.createElement('div');
+        el.className = `cultural-corner corner-${c}`;
+        body.appendChild(el);
+    });
+    const seal = doc.createElement('div');
+    seal.className = 'chinese-seal';
+    seal.textContent = '诊断证明\nMedical Record';
+    body.appendChild(seal);
 }
 
 /*// ------------------------------------
