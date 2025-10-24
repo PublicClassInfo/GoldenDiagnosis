@@ -1937,81 +1937,246 @@ function collectFilledData() {
 
 
 /*// ====================================
-// 🖼️ Logo Helpers (local/remote/fallback)
+// 🖼️ Logo Helpers (local/remote/fallback) — improved, drop-in compatible
 // ====================================*/
-const LOGO_BASE64_FALLBACK = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjIwIiBoZWlnaHQ9IjIyMCIgdmlld0JveD0iMCAwIDIyMCAyMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHJhZGlhbEdyYWRpZW50IGlkPSJnIiBjeD0iNTAlIiBjeT0iNTAlIiByPSI3MCI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzEyYTA4ZiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzBmNzY2ZSIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPjxjaXJjbGUgY3g9IjExMCIgY3k9IjExMCIgcj0iMTAwIiBmaWxsPSJ1cmwoI2cpIiBzdHJva2U9IiNkNGFmMzciIHN0cm9rZS13aWR0aD0iMTAiLz48Y2lyY2xlIGN4PSIxMTAiIGN5PSIxMTAiIHI9Ijg0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmMmUzYTYiIHN0cm9rZS13aWR0aD0iMyIgb3BhY2l0eT0iLjgiLz48dGV4dCB4PSIxMTAiIHk9IjEzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Ik5vdG8gU2VyaWYgU0MsIHNlcmlmIiBmb250LXNpemU9Ijk2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjYmYxZTJlIj7kuK3lvI08L3RleHQ+PC9zdmc+";
 
-// Pin a known-good commit; fall back to main if needed
+/** Inline fallback kept for strict backwards compatibility */
+const LOGO_BASE64_FALLBACK =
+  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjIwIiBoZWlnaHQ9IjIyMCIgdmlld0JveD0iMCAwIDIyMCAyMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHJhZGlhbEdyYWRpZW50IGlkPSJnIiBjeD0iNTAlIiBjeT0iNTAlIiByPSI3MCI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzEyYTA4ZiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzBmNzY2ZSIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPjxjaXJjbGUgY3g9IjExMCIgY3k9IjExMCIgcj0iMTAwIiBmaWxsPSJ1cmwoI2cpIiBzdHJva2U9IiNkNGFmMzciIHN0cm9rZS13aWR0aD0iMTAiLz48Y2lyY2xlIGN4PSIxMTAiIGN5PSIxMTAiIHI9Ijg0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmMmUzYTYiIHN0cm9rZS13aWR0aD0iMyIgb3BhY2l0eT0iLjgiLz48dGV4dCB4PSIxMTAiIHk9IjEzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Ik5vdG8gU2VyaWYgU0MsIHNlcmlmIiBmb250LXNpemU9Ijk2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjYmYxZTJlIj7kuK3lvI08L3RleHQ+PC9zdmc+";
+
+/** Pin a known-good commit; fall back to main if needed */
 const REPO_COMMIT_SHA = "18a7e5a28929655ad6bc1bc81d35b3bb6cb3505d";
 
-async function chooseWorkingLogoSrc() {
-    const el = document.getElementById('brandLogo') || document.querySelector('img.logo, .site-logo img');
-    if (el?.src) return el.src;
+/* internal, non-breaking enhancements */
+const _logoRuntimeCache = {
+  chosenUrlPromise: null,                        // dedupe concurrent lookups
+  dataUrlCache: new Map(),                       // in-memory URL→dataURL
+  ssKey: "gd:logo:url@v2",                       // sessionStorage cache (URL)
+  lsPrefix: "gd:dataurl:",                       // localStorage cache (dataURL)
+  lsTTLms: 7 * 24 * 60 * 60 * 1000               // 7 days
+};
 
-    // Prefer source repo layout first (/src/Images), then generic /Images paths
+/**
+ * Try to choose a working logo URL with robust fallbacks.
+ * Keeps your original selection order, but:
+ *  - expands local candidates a bit
+ *  - caches the result for the session
+ *  - dedupes concurrent calls
+ *  - survives file:// and CORS issues gracefully
+ */
+async function chooseWorkingLogoSrc() {
+  // If a logo is already on the page, respect it.
+  const el = document.getElementById("brandLogo") || document.querySelector("img.logo, .site-logo img");
+  if (el?.src) return el.src;
+
+  // Deduplicate concurrent calls
+  if (_logoRuntimeCache.chosenUrlPromise) return _logoRuntimeCache.chosenUrlPromise;
+
+  _logoRuntimeCache.chosenUrlPromise = (async () => {
+    // Session cache (fast path)
+    try {
+      const cached = sessionStorage.getItem(_logoRuntimeCache.ssKey);
+      if (cached) {
+        // quick verify (short timeout)
+        if (await preloadImage(cached, { cross: isCrossOrigin(cached), timeoutMs: 1500 }).catch(() => false)) {
+          return cached;
+        }
+      }
+    } catch {}
+
+    // Prefer source repo layout first (/src/Images), then generic paths
     const local = [
-        '/src/Images/MariaLogo.png',
-        'src/Images/MariaLogo.png',
-        '/Images/MariaLogo.png',
-        'Images/MariaLogo.png',
-        './Images/MariaLogo.png'
+      "/src/Images/MariaLogo.png",
+      "src/Images/MariaLogo.png",
+      "/Images/MariaLogo.png",
+      "Images/MariaLogo.png",
+      "./Images/MariaLogo.png",
+      // broaden a little without breaking anything
+      "/src/images/MariaLogo.png",
+      "/images/MariaLogo.png",
+      "/logo.png",
+      "logo.png"
     ];
 
     // CDN (pinned commit first, then main)
     const remote = [
-        `https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@${REPO_COMMIT_SHA}/src/Images/MariaLogo.png`,
-        'https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/Images/MariaLogo.png'
+      `https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@${REPO_COMMIT_SHA}/src/Images/MariaLogo.png`,
+      "https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/Images/MariaLogo.png"
     ];
 
+    // Try locals
     for (const url of local) {
-        if (await preloadImage(url).catch(() => false)) return url;
+      if (await preloadImage(url, { cross: false }).catch(() => false)) {
+        try { sessionStorage.setItem(_logoRuntimeCache.ssKey, url); } catch {}
+        return url;
+      }
     }
+    // Try CDN (with CORS)
     for (const url of remote) {
-        if (await preloadImage(url, true).catch(() => false)) return url;
+      if (await preloadImage(url, { cross: true }).catch(() => false)) {
+        try { sessionStorage.setItem(_logoRuntimeCache.ssKey, url); } catch {}
+        return url;
+      }
     }
-    return LOGO_BASE64_FALLBACK;
+    // Nothing worked → dynamic fallback (kept API)
+    const fallback = buildFallbackLogoDataURL();
+    try { sessionStorage.setItem(_logoRuntimeCache.ssKey, fallback); } catch {}
+    return fallback;
+  })();
+
+  return _logoRuntimeCache.chosenUrlPromise;
 }
 
-function preloadImage(url, cross = false, timeoutMs = 6000) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        if (cross) img.crossOrigin = 'anonymous';
-        const t = setTimeout(() => reject(false), timeoutMs);
-        img.onload = () => { clearTimeout(t); resolve(true); };
-        img.onerror = () => { clearTimeout(t); reject(false); };
-        img.src = url;
-    });
-}
+/**
+ * Preload an image with timeout and decode() when available.
+ * @param {string} url
+ * @param {{cross?: boolean, timeoutMs?: number}} opts
+ */
+function preloadImage(url, opts = {}) {
+  const { cross = false, timeoutMs = 6000 } = opts;
 
-function buildFallbackLogoDataURL() {
-    return LOGO_BASE64_FALLBACK;
-}
-
-async function toDataURL(url) {
-    /*// ------------------------------------
-    // 🖼️ Convert image to data URL when possible; otherwise fall back to inline SVG
-    // ------------------------------------*/
-    if (!url) return LOGO_BASE64_FALLBACK;
-
+  return new Promise((resolve, reject) => {
     try {
-        const u = new URL(url, location.href);
+      const img = new Image();
+      if (cross) img.crossOrigin = "anonymous";
 
-        // When opened via file://, avoid network/CORS attempts
-        if (location.protocol === 'file:') return LOGO_BASE64_FALLBACK;
+      let done = false;
+      const finish = (ok) => { if (!done) { done = true; ok ? resolve(true) : reject(false); } };
 
-        const res = await fetch(u.href, { mode: 'cors', credentials: 'omit' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+      const timer = setTimeout(() => finish(false), timeoutMs);
 
-        const blob = await res.blob();
-        return await new Promise((resolve, reject) => {
-            const fr = new FileReader();
-            fr.onload = () => resolve(fr.result);
-            fr.onerror = reject;
-            fr.readAsDataURL(blob);
-        });
+      img.onload = async () => {
+        clearTimeout(timer);
+        // Prefer decode() to ensure it can actually render
+        try {
+          if (typeof img.decode === "function") {
+            await img.decode();
+          }
+        } catch {/* ignore decode quirks */}
+        finish(true);
+      };
+      img.onerror = () => { clearTimeout(timer); finish(false); };
+
+      // Be tolerant of relative URLs
+      const u = new URL(url, location.href);
+      img.src = u.href;
     } catch {
-        return LOGO_BASE64_FALLBACK;
+      reject(false);
     }
+  });
+}
+
+/**
+ * Build a nicer inline fallback. Keeps your constant as the final fallback,
+ * but tries to generate a tiny SVG with initials when we can infer a name.
+ * No breaking dependencies: all reads are guarded by try/catch.
+ */
+function buildFallbackLogoDataURL() {
+  try {
+    // Try to pull a short label (clinic name, title, or patient initials) if available
+    const data = (typeof readStore === "function" ? (readStore() || {}) : {}) || {};
+    const raw =
+      data?.clinicName ||
+      (typeof t === "function" ? t("titles.form") : "") ||
+      data?.patientName ||
+      "";
+    const initials = String(raw).trim().split(/\s+/).slice(0, 2).map(s => s[0] || "").join("").toUpperCase().slice(0, 3) || "GD";
+
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220" viewBox="0 0 220 220">
+        <defs>
+          <radialGradient id="g" cx="50%" cy="50%" r="70%">
+            <stop offset="0%" stop-color="#12a08f"/>
+            <stop offset="100%" stop-color="#0f766e"/>
+          </radialGradient>
+        </defs>
+        <circle cx="110" cy="110" r="100" fill="url(#g)" stroke="#d4af37" stroke-width="10"/>
+        <circle cx="110" cy="110" r="84" fill="none" stroke="#f2e3a6" stroke-width="3" opacity=".8"/>
+        <text x="110" y="130" text-anchor="middle" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
+              font-size="72" font-weight="800" fill="#fff">${escapeXML(initials)}</text>
+      </svg>`;
+
+    return "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg)));
+  } catch {
+    return LOGO_BASE64_FALLBACK;
+  }
+}
+
+/**
+ * Convert an image URL to a data URL when possible.
+ * - Returns input immediately if it's already a data: URL.
+ * - Caches successful conversions in localStorage (7 days).
+ * - Avoids network when running under file://
+ */
+async function toDataURL(url) {
+  /*// ------------------------------------
+  // 🖼️ Convert image to data URL when possible; otherwise fall back to inline SVG
+  // ------------------------------------*/
+  if (!url) return LOGO_BASE64_FALLBACK;
+  if (String(url).startsWith("data:")) return url;
+
+  // In-memory cache first
+  if (_logoRuntimeCache.dataUrlCache.has(url)) {
+    return _logoRuntimeCache.dataUrlCache.get(url);
+  }
+
+  // LocalStorage cache with TTL
+  try {
+    const key = _logoRuntimeCache.lsPrefix + url;
+    const cached = JSON.parse(localStorage.getItem(key) || "null");
+    if (cached && (Date.now() - cached.ts) < _logoRuntimeCache.lsTTLms && typeof cached.data === "string") {
+      _logoRuntimeCache.dataUrlCache.set(url, cached.data);
+      return cached.data;
+    }
+  } catch {}
+
+  // When opened via file://, avoid network/CORS attempts
+  if (location.protocol === "file:") return buildFallbackLogoDataURL();
+
+  // Fetch and convert
+  try {
+    const u = new URL(url, location.href);
+    const res = await fetch(u.href, { mode: "cors", credentials: "omit", cache: "force-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const blob = await res.blob();
+
+    const dataUrl = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = () => reject(new Error("readAsDataURL failed"));
+      fr.readAsDataURL(blob);
+    });
+
+    // Cache it
+    try {
+      const key = _logoRuntimeCache.lsPrefix + url;
+      localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: dataUrl }));
+    } catch {}
+
+    _logoRuntimeCache.dataUrlCache.set(url, dataUrl);
+    return dataUrl;
+  } catch {
+    // Final fallback
+    return buildFallbackLogoDataURL();
+  }
+}
+
+/* ---------- tiny helpers ---------- */
+
+function escapeXML(s) {
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function isCrossOrigin(url) {
+  try {
+    const u = new URL(url, location.href);
+    return u.origin !== location.origin;
+  } catch {
+    return false;
+  }
 }
 
 /*// ====================================
@@ -2182,6 +2347,7 @@ function injectPrintFixes() {
     s.id = 'gd-print-fixes';
     s.textContent = `
         .section { break-inside:auto !important; page-break-inside:auto !important; }
+        .patient, .pitem, .entry { break-inside:avoid !important; page-break-inside:avoid !important; }
         .no-split { break-inside:avoid !important; page-break-inside:avoid !important; }
         .table-grid thead { display:table-header-group !important; }
         .table-grid tbody { display:table-row-group !important; }
@@ -2252,6 +2418,7 @@ function buildDocHTML(exportData, logoSrc) {
     <html lang="${currentLanguage}">
         <head>
             <meta charset="UTF-8" />
+            <meta http-equiv="X-UA-Compatible" content="IE=edge" />
             <meta name="viewport" content="width=device-width,initial-scale=1" />
             <meta name="color-scheme" content="light only" />
             <title>${t('titles.form')}</title>
@@ -2295,7 +2462,7 @@ async function ensureHtml2PdfLibrary() {
     });
 }
 
-async function waitForAssetsWindow(w, timeoutMs = 5000) {
+async function waitForAssetsWindow(w, timeoutMs = 6000) {
     try {
         const doc = w.document;
         const imgs = Array.from(doc.images || []);
@@ -2404,7 +2571,7 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
         }
 
         if (isMobileLike()) {
-            // Mobile: generate PDF -> open/share (consistent beauty) then user prints
+            /* Mobile: render PDF blob, open viewer/share; user prints from viewer */
             const { node, iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
             const { filename, blob } = await generatePdfBlobFromNode(node);
             await openOrSharePdfBlob(blob, filename);
@@ -2413,7 +2580,7 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
             return;
         }
 
-        // Desktop: Paged.js + native print dialog (closest to preview)
+        /* Desktop: Paged.js + native print dialog */
         const { iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:true });
         try { iframe.contentWindow.focus(); } catch {}
         try { iframe.contentWindow.print(); } catch {}
@@ -2447,6 +2614,7 @@ async function savePdfUnified(exportData=null, logoSrc=null) {
 
         const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
         iframe = result.iframe;
+
         const { filename, blob } = await generatePdfBlobFromNode(result.node);
         await openOrSharePdfBlob(blob, filename);
         showToast(t('toasts.pdfSaved') || (currentLanguage==='pt' ? 'PDF pronto.' : 'PDF ready.'), 'success');
@@ -2487,7 +2655,7 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
         const safeName = (rawName || (currentLanguage==='pt'?'Paciente':'Patient')).replace(/[^a-zA-Z0-9]/g,'_');
         const message = t('share.message', { name: rawName || safeName });
 
-        // Preferred: Web Share Level 2 with files (shows WhatsApp if installed)
+        /* Preferred: Web Share Level 2 with files (Android/iOS — WhatsApp shows up) */
         try {
             if (navigator.canShare && navigator.canShare({ files:[file] })) {
                 await navigator.share({ files:[file], title: filename, text: message });
@@ -2496,12 +2664,20 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
             }
         } catch {}
 
-        // Fallback: download PDF + open wa.me with message
+        /* Fallback: download + open WhatsApp link (desktop/mobile without file share) */
         await triggerDownloadBlob(filename, blob);
+        try { await navigator.clipboard?.writeText?.(`${message}\n\n📎 ${filename}`); } catch {}
+
         const e164 = phoneE164IfPossible();
         const base = e164 ? `https://wa.me/${e164}` : 'https://wa.me/';
-        const url = `${base}?text=${encodeURIComponent(`${message}\n\n📎 ${filename}`)}`;
-        window.open(url, '_blank');
+        const text = encodeURIComponent(`${message}\n\n📎 ${filename}`);
+        const candidates = [
+            `whatsapp://send?text=${text}${e164 ? `&phone=${e164}` : ''}`,
+            `${base}?text=${text}`
+        ];
+        for (const u of candidates) {
+            try { window.open(u, '_blank'); break; } catch {}
+        }
         showToast(currentLanguage==='pt' ? 'PDF baixado e WhatsApp aberto.' : 'PDF downloaded and WhatsApp opened.', 'success');
     } catch (err) {
         console.error('sharePdfToWhatsApp error:', err);
@@ -2527,14 +2703,17 @@ async function generatePdfBlobFromNode(node) {
     const width  = Math.max(node.scrollWidth, 794);
     const height = Math.max(node.scrollHeight, 1123);
 
-    const blob = await window.html2pdf().set({
+    const scaleTarget = Math.min(2.4, Math.max(1.6, (window.devicePixelRatio || 1)));
+
+    const opts = {
         margin:[14,14,14,14],
         filename,
         image:{ type:'jpeg', quality:0.98 },
         html2canvas:{
-            scale: isMobileLike() ? 2.0 : 2.4,
+            scale: scaleTarget,
             useCORS:true,
             allowTaint:false,
+            imageTimeout: 5000,
             backgroundColor:'#ffffff',
             windowWidth: width,
             windowHeight: height,
@@ -2552,15 +2731,29 @@ async function generatePdfBlobFromNode(node) {
                 }catch{}
             }
         },
-        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait', compress:true },
+        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait', compress:true, putOnlyUsedFonts:true, floatPrecision:'smart' },
         pagebreak:{ mode:['css','legacy'], before:'.section', avoid:'.entry, .pitem, .table-grid tr, .table-grid td' }
-    }).from(node).output('blob');
+    };
+
+    /* Use the worker API so we can set PDF metadata before generating the blob */
+    const worker = window.html2pdf().set(opts).from(node).toPdf();
+    const pdf = await worker.get('pdf');
+    try {
+        pdf.setProperties({
+            title: filename,
+            subject: title,
+            author: 'Mentoria - Diagnóstico de Ouro',
+            creator: 'GoldenDiagnosis',
+            keywords: 'Anamnese, Diagnóstico, PDF'
+        });
+    } catch {}
+    const blob = await worker.output('blob');
 
     return { filename, blob };
 }
 
 async function openOrSharePdfBlob(blob, filename) {
-    // Desktop → download. Mobile → try share, else open + download.
+    /* Desktop → download. Mobile → try share, else open + download. */
     try {
         const file = new File([blob], filename, { type: 'application/pdf' });
         if (isMobileLike() && navigator.canShare && navigator.canShare({ files:[file] })) {
@@ -2575,7 +2768,7 @@ async function openOrSharePdfBlob(blob, filename) {
 
     await triggerDownloadBlob(filename, blob);
 
-    // Also open a viewer tab if popups aren’t blocked (helps printing on phones without share)
+    /* Also open a viewer tab if popups aren’t blocked (helps printing on phones without share) */
     try {
         const url = URL.createObjectURL(blob);
         const win = window.open(url, '_blank');
@@ -2592,232 +2785,6 @@ async function triggerDownloadBlob(filename, blob) {
     a.click();
     a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 30000);
-}
-
-/*// ====================================
-// 🎯 PREVIEW MODAL SYSTEM (keeps your style, closes ONLY on “X”)
-// ====================================*/
-let currentExportData = null;
-let currentLogoSrc = null;
-let _previewCleanup = null;
-
-async function showPreviewModal(exportData, logoSrc) {
-    currentExportData = exportData;
-    currentLogoSrc = logoSrc;
-
-    // If a previous modal exists, close it first for idempotency
-    try { closePreviewModal(); } catch {}
-
-    const modal = document.createElement('div');
-    modal.id = 'golden-preview-modal';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-labelledby', 'golden-preview-title');
-    modal.innerHTML = `
-        <div class="preview-modal-content">
-            <div class="preview-modal-header">
-                <h3 id="golden-preview-title">${t('preview.title') || 'Document Preview'}</h3>
-                <span class="preview-close" aria-label="Close" title="Close" type="button">&times;</span>
-            </div>
-            <div class="preview-modal-body">
-                <iframe id="preview-iframe" style="width:100%;height:100%;border:none;"></iframe>
-            </div>
-            <div class="preview-modal-footer">
-                <button id="preview-edit-btn" class="preview-btn preview-btn-edit" type="button">
-                    <i class="fas fa-edit" aria-hidden="true"></i> ${t('preview.edit') || 'Edit'}
-                </button>
-                <button id="preview-pdf-btn" class="preview-btn preview-btn-primary" type="button">
-                    <i class="fas fa-file-pdf" aria-hidden="true"></i> ${t('preview.savePdf') || 'Save PDF'}
-                </button>
-                <button id="preview-print-btn" class="preview-btn preview-btn-primary" type="button">
-                    <i class="fas fa-print" aria-hidden="true"></i> ${t('preview.print') || 'Print'}
-                </button>
-                <button id="preview-whatsapp-btn" class="preview-btn preview-btn-success" type="button">
-                    <i class="fab fa-whatsapp" aria-hidden="true"></i> WhatsApp
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-
-    // Lock page scroll while modal is open
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const iframe = document.getElementById('preview-iframe');
-    const docHTML = buildDocHTML(exportData, logoSrc);
-
-    iframe.onload = function () {
-        try {
-            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-            const style = iframeDoc.createElement('style');
-            style.textContent = getChineseCulturalStyles();
-            iframeDoc.head.appendChild(style);
-            addCulturalElements(iframeDoc);
-        } catch (e) { console.warn('Could not enhance preview with cultural elements:', e); }
-    };
-    iframe.srcdoc = docHTML;
-
-    // Handlers — NOTE: only the “X” closes the modal now (Edit will close explicitly)
-    const onCloseClick = () => closePreviewModal();
-
-    const withBusy = async (btn, fn) => {
-        if (!btn) return;
-        const prevDisabled = btn.disabled;
-        btn.disabled = true;
-        btn.setAttribute('aria-busy', 'true');
-        try { await fn(); } catch {} finally {
-            btn.disabled = prevDisabled;
-            btn.removeAttribute('aria-busy');
-        }
-    };
-
-    const onPdfClick = async (e) => {
-        await withBusy(e.currentTarget, async () =>
-            (savePdfUnified?.(currentExportData, currentLogoSrc) || saveToPDF?.(currentExportData, currentLogoSrc))
-        );
-    };
-    const onPrintClick = async (e) => {
-        await withBusy(e.currentTarget, async () =>
-            (printDocumentUnified?.(currentExportData, currentLogoSrc) || printDocumentPaged?.(currentExportData, currentLogoSrc))
-        );
-    };
-    const onWhatsClick = async (e) => {
-        await withBusy(e.currentTarget, async () =>
-            (sharePdfToWhatsApp?.(currentExportData, currentLogoSrc) || shareViaWhatsApp?.(currentExportData, currentLogoSrc))
-        );
-    };
-
-    // “Edit” now returns to the form: close modal, focus a good field, and highlight briefly
-    const onEditClick = async (e) => {
-        await withBusy(e.currentTarget, async () => {
-            // Inject a tiny highlight style once
-            if (!document.getElementById('gd-edit-flash-style')) {
-                const s = document.createElement('style');
-                s.id = 'gd-edit-flash-style';
-                s.textContent = `
-                    .gd-edit-flash {
-                        outline: 3px solid var(--jade, #0f766e);
-                        outline-offset: 2px;
-                        transition: outline-color .8s ease, outline-offset .8s ease;
-                    }
-                `;
-                document.head.appendChild(s);
-            }
-
-            // Close preview first (restores scroll via cleanup)
-            closePreviewModal();
-
-            // Wait a tick so underlying layout is ready, then focus a sensible target
-            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
-
-            // Preference order: explicit target, autofocus, first enabled text-like control
-            const findEditTarget = () => {
-                const explicit = document.querySelector('[data-edit-focus]');
-                if (explicit) return explicit;
-
-                const auto = document.querySelector('[autofocus]');
-                if (auto && !auto.disabled && auto.offsetParent !== null) return auto;
-
-                const candidates = Array.from(document.querySelectorAll('input, textarea, select'));
-                for (const el of candidates) {
-                    if (el.disabled) continue;
-                    if (el.type === 'hidden') continue;
-                    if (el.offsetParent === null) continue; // not visible
-                    return el;
-                }
-                return null;
-            };
-
-            const target = findEditTarget();
-            if (target) {
-                try {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-                } catch {}
-                try {
-                    target.focus({ preventScroll: true });
-                } catch {}
-                try {
-                    target.classList.add('gd-edit-flash');
-                    setTimeout(() => target.classList.remove('gd-edit-flash'), 1200);
-                } catch {}
-            }
-        });
-    };
-
-    modal.querySelector('.preview-close').addEventListener('click', onCloseClick);
-    modal.querySelector('#preview-edit-btn').addEventListener('click', onEditClick);
-    modal.querySelector('#preview-pdf-btn').addEventListener('click', onPdfClick);
-    modal.querySelector('#preview-print-btn').addEventListener('click', onPrintClick);
-    modal.querySelector('#preview-whatsapp-btn').addEventListener('click', onWhatsClick);
-
-    // DO NOT close on backdrop click or ESC anymore
-    // (No backdrop or keydown listeners registered)
-
-    modal.style.display = 'block';
-
-    // Move focus to close button for accessibility
-    const closeBtn = modal.querySelector('.preview-close');
-    try { closeBtn?.focus(); } catch {}
-
-    // Cleanup function to remove listeners and restore scroll when X is clicked
-    _previewCleanup = () => {
-        try { modal.querySelector('.preview-close')?.removeEventListener('click', onCloseClick); } catch {}
-        try { modal.querySelector('#preview-edit-btn')?.removeEventListener('click', onEditClick); } catch {}
-        try { modal.querySelector('#preview-pdf-btn')?.removeEventListener('click', onPdfClick); } catch {}
-        try { modal.querySelector('#preview-print-btn')?.removeEventListener('click', onPrintClick); } catch {}
-        try { modal.querySelector('#preview-whatsapp-btn')?.removeEventListener('click', onWhatsClick); } catch {}
-        document.body.style.overflow = prevOverflow || '';
-    };
-}
-
-function closePreviewModal() {
-    const modal = document.getElementById('golden-preview-modal');
-    if (!modal) return;
-    modal.style.display = 'none';
-    try { _previewCleanup?.(); } catch {}
-    setTimeout(() => { try { modal.remove(); } catch {} }, 300);
-}
-
-/* Cosmetic styles injected inside the preview iframe */
-function getChineseCulturalStyles() {
-    return `
-        :root{--jade:#0f766e;--gold:#d4af37;--cinnabar:#bf1e2e;--ink:#1f2937;--line:rgba(0,0,0,.1)}
-        .cultural-border{position:fixed;pointer-events:none;z-index:1;width:100%}
-        .top-cultural-border{top:0;left:0;right:0;height:18px;background:linear-gradient(90deg,var(--jade),var(--gold),var(--jade));opacity:.6;z-index:2}
-        .bottom-cultural-border{bottom:0;left:0;right:0;height:18px;background:linear-gradient(90deg,var(--jade),var(--gold),var(--jade));opacity:.6;z-index:2}
-        .cultural-corner{position:fixed;width:26px;height:26px;border:3px solid var(--jade);opacity:.45;background:transparent}
-        .corner-tl{top:22px;left:10px;border-right-color:transparent;border-bottom-color:transparent;border-radius:8px 0 0 0}
-        .corner-tr{top:22px;right:10px;border-left-color:transparent;border-bottom-color:transparent;border-radius:0 8px 0 0}
-        .corner-bl{bottom:22px;left:10px;border-right-color:transparent;border-top-color:transparent;border-radius:0 0 0 8px}
-        .corner-br{bottom:22px;right:10px;border-left-color:transparent;border-top-color:transparent;border-radius:0 0 8px 0}
-        .chinese-pattern{position:absolute;inset:0;opacity:.1;pointer-events:none;z-index:0}
-        .chinese-seal{position:fixed;bottom:26px;right:26px;width:70px;height:70px;border:2px solid var(--cinnabar);border-radius:5px;display:flex;align-items:center;justify-content:center;transform:rotate(5deg);background:rgba(191,30,46,.05);color:var(--cinnabar);font-family:"Noto Serif SC",serif;font-weight:900;font-size:12px;text-align:center;padding:4px;opacity:.8;z-index:2}
-        .preview-mode .page{box-shadow:0 0 24px rgba(0,0,0,.15);margin:20px auto}
-    `;
-}
-
-function addCulturalElements(doc) {
-    const body = doc.body;
-    body.classList.add('preview-mode');
-    const pattern = doc.createElement('div');
-    pattern.className = 'chinese-pattern';
-    body.appendChild(pattern);
-    const topBorder = doc.createElement('div');
-    topBorder.className = 'cultural-border top-cultural-border';
-    body.appendChild(topBorder);
-    const bottomBorder = doc.createElement('div');
-    bottomBorder.className = 'cultural-border bottom-cultural-border';
-    body.appendChild(bottomBorder);
-    ['tl', 'tr', 'bl', 'br'].forEach(c => {
-        const el = doc.createElement('div');
-        el.className = `cultural-corner corner-${c}`;
-        body.appendChild(el);
-    });
-    const seal = doc.createElement('div');
-    seal.className = 'chinese-seal';
-    seal.textContent = '诊断证明\nMedical Record';
-    body.appendChild(seal);
 }
 
 /*// ------------------------------------
