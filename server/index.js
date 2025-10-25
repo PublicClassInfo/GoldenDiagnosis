@@ -1,90 +1,129 @@
-/*// ======================================
-   // 🚀 Express server
-   // - /health (ping)
-   // - /api/render-pdf (HTML → PDF)
-   // - /api/send-whatsapp (PDF base64 → link → WhatsApp Cloud)
-   // ====================================*/
-import 'dotenv/config';
-import path from 'node:path';
-import fs from 'node:fs';
-import express from 'express';
-import cors from 'cors';
-import morgan from 'morgan';
-import { renderPdfFromHtml } from './render-pdf.js';
-import { savePdfToUploads, sendWhatsAppDocument } from './send-whatsapp.js';
+const express = require('express');
+const puppeteer = require('puppeteer');
+const twilio = require('twilio');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
-const port = process.env.PORT || 3000;
-const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
+const PORT = process.env.PORT || 3000;
 
-// static files for uploaded PDFs
-app.use('/files', express.static(path.join(process.cwd(), 'server', 'uploads')));
-
-// middlewares
 app.use(cors());
-app.use(morgan('tiny'));
-app.use(express.json({ limit: '12mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// health check
-app.get('/health', (req, res) => res.type('text/plain').send('ok'));
+// Serve static files from src directory
+app.use('/src', express.static(path.join(__dirname, '../src')));
 
-// HTML -> PDF
-app.post('/api/render-pdf', async (req, res) => {
+// PDF Generation endpoint
+app.post('/generate-pdf', async (req, res) => {
     try {
-        const { html, filename } = req.body || {};
-        if (!html) return res.status(400).json({ error: 'Missing html' });
-        const pdf = await renderPdfFromHtml(html);
-        const outName = filename || `anamnese_${Date.now()}.pdf`;
+        const { html, options = {} } = req.body;
+        
+        const browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: 'networkidle0' });
+        
+        const pdf = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: {
+                top: '14mm',
+                right: '14mm',
+                bottom: '14mm',
+                left: '14mm'
+            },
+            ...options
+        });
+        
+        await browser.close();
+        
         res.set({
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="${outName}"`
+            'Content-Disposition': 'attachment; filename="diagnosis.pdf"',
+            'Content-Length': pdf.length
         });
-        res.send(Buffer.from(pdf));
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'render_failed' });
+        
+        res.send(pdf);
+        
+    } catch (error) {
+        console.error('PDF generation error:', error);
+        res.status(500).json({ error: 'Failed to generate PDF' });
     }
 });
 
-// WhatsApp (document) via Cloud API
-app.post('/api/send-whatsapp', async (req, res) => {
+// WhatsApp sharing endpoint
+app.post('/share-whatsapp', async (req, res) => {
     try {
-        const {
-            filename,
-            pdfBase64,
-            to = process.env.RECIPIENT_WAID,
-            caption = 'Ficha de anamnese'
-        } = req.body || {};
-
-        if (!pdfBase64) return res.status(400).json({ error: 'Missing pdfBase64' });
-        if (!to) return res.status(400).json({ error: 'Missing to' });
-
-        const buf = Buffer.from(pdfBase64, 'base64');
-        const { fname } = await savePdfToUploads(filename, buf);
-        const publicLink = `${baseUrl}/files/${encodeURIComponent(fname)}`;
-
-        const resp = await sendWhatsAppDocument({
-            baseUrl,
-            to,
-            token: process.env.WHATSAPP_TOKEN,
-            phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
-            link: publicLink,
-            filename: fname,
-            caption
+        const { pdfData, phoneNumber, message } = req.body;
+        
+        // Initialize Twilio client (you'll need to set these environment variables)
+        const client = twilio(
+            process.env.TWILIO_ACCOUNT_SID,
+            process.env.TWILIO_AUTH_TOKEN
+        );
+        
+        // Save PDF temporarily
+        const pdfBuffer = Buffer.from(pdfData, 'base64');
+        const tempPath = path.join(__dirname, 'temp', `diagnosis-${Date.now()}.pdf`);
+        
+        // Ensure temp directory exists
+        if (!fs.existsSync(path.join(__dirname, 'temp'))) {
+            fs.mkdirSync(path.join(__dirname, 'temp'));
+        }
+        
+        fs.writeFileSync(tempPath, pdfBuffer);
+        
+        // Send via WhatsApp using Twilio
+        const result = await client.messages.create({
+            body: message || 'Here is your diagnosis report',
+            from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+            to: `whatsapp:${phoneNumber}`,
+            mediaUrl: [`${req.protocol}://${req.get('host')}/download-pdf?file=${path.basename(tempPath)}`]
         });
-
-        res.json({ ok: true, response: resp, link: publicLink });
-    } catch (e) {
-        console.error('WhatsApp error:', e.response || e);
-        res.status(500).json({ error: 'whatsapp_failed', details: e.response || e.message });
+        
+        // Clean up temp file after sending
+        setTimeout(() => {
+            if (fs.existsSync(tempPath)) {
+                fs.unlinkSync(tempPath);
+            }
+        }, 30000); // 30 seconds delay
+        
+        res.json({ 
+            success: true, 
+            messageId: result.sid,
+            status: result.status 
+        });
+        
+    } catch (error) {
+        console.error('WhatsApp sharing error:', error);
+        res.status(500).json({ error: 'Failed to share via WhatsApp' });
     }
 });
 
-// (optional) serve dist/ for local demo
-const DIST = path.join(process.cwd(), 'dist');
-if (fs.existsSync(DIST)) {
-    app.use(express.static(DIST));
-    app.get('/', (req, res) => res.sendFile(path.join(DIST, 'index.html')));
-}
+// Temporary PDF download endpoint
+app.get('/download-pdf', (req, res) => {
+    const fileName = req.query.file;
+    const filePath = path.join(__dirname, 'temp', fileName);
+    
+    if (fs.existsSync(filePath)) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.sendFile(filePath);
+    } else {
+        res.status(404).json({ error: 'File not found' });
+    }
+});
 
-app.listen(port, () => console.log(`✓ Server on ${baseUrl}`));
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+app.listen(PORT, () => {
+    console.log(`Golden Diagnosis Server running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+});
