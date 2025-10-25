@@ -15,7 +15,7 @@
 /*// ====================================
 // 🌍 I18N Dictionary and Utilities
 // ====================================*/
-const I18N = {
+const I18N = { 
     pt: {
         titles: { form: 'Diagnóstico de Ouro', mentorship: 'Medicina Tradicional Chinesa' },
         footer: { confidential: 'Copyright © ' + new Date().getFullYear() + ' Maria Aparecida Pereira Santos | Diagnóstico de Ouro - Medicina Tradicional Chinesa' },
@@ -672,8 +672,10 @@ const I18N = {
             quote: 'Restore the natural balance of the body with precise diagnosis and personalized treatment.',
             body: 'With this form, Maria seeks the root cause of illnesses, promoting real and lasting healing.'
         }
-    }
+    }    
 };
+//  ── Keep the full I18N object exactly as in your original code above ──
+//  (Omitted here just to keep this answer readable. Do NOT omit in your file.)
 
 function t(key, params = {}) {
     const seg = key.split('.').reduce((o, p) => o?.[p], I18N[currentLanguage] || I18N.pt);
@@ -698,7 +700,7 @@ function escapeHTML(s) {
 /*// ====================================
 // 🗂️ Section Definitions (flashcards + export mapping)
 // ====================================*/
-const SECTIONS = [
+const SECTIONS = [ 
     { id: 'general', title: (lang) => I18N[lang].sections.general, inputs: ['date','treatmentDate','formNumber','therapistName','patientName','address','profession','maritalStatus','birthDate','referral','country','phone','email','zip'] },
     { id: 'complaint', title: (lang) => I18N[lang].sections.complaint, inputs: ['onsetPain','painLocation','associatedFactors','painIntensity','painFrequency','painCharacteristics','improveWorsen','accompanyingSymptoms','painObservations'] },
     { id: 'thermo', title: (lang) => I18N[lang].sections.thermo, inputs: ['feelsColdHot','normalTemperature','preferSeason','preferDrinks','severeCold','yangDeficiency','feverChills','strongChills','mildChills','feverNoChills','wavyFever','severeFever','lowFever','excessiveHeat','temperatureObservations'] },
@@ -711,7 +713,7 @@ const SECTIONS = [
     { id: 'emotions', title: (lang) => I18N[lang].sections.emotions, inputs: ['predominantEmotion','intenseEmotion','emotionsObservations'] },
     { id: 'reproductive', title: (lang) => I18N[lang].sections.reproductive, inputs: ['menstruationRegularity','menstruationVolume','menstruationCramps','menstruationAbsence','menstruationPMS','femaleObservations','maleFertility','maleLibido','maleFrequency','maleObservations'] },
     { id: 'pulse', title: (lang) => I18N[lang].sections.pulse, inputs: ['pulseTypeFloating','pulseTypeSinking','pulseTypeSlow','pulseTypeRapid','pulseTypeWeak','pulseTypeStrong','pulseDepth','pulseSpeed','pulseObservations'] },
-    { id: 'tongue', title: (lang) => I18N[lang].sections.tongue, inputs: ['tongueVitality','tongueColor','tongueShape','tongueMovement','coatingThick','coatingThin','coatingWhite','coatingYellow','coatingRooted','coatingRootless','tongueObservations'] }
+    { id: 'tongue', title: (lang) => I18N[lang].sections.tongue, inputs: ['tongueVitality','tongueColor','tongueShape','tongueMovement','coatingThick','coatingThin','coatingWhite','coatingYellow','coatingRooted','coatingRootless','tongueObservations'] }    
 ];
 
 /*// ====================================
@@ -900,7 +902,7 @@ function ensureThemedUIStyles() {
         body.dark-mode ::-webkit-scrollbar-thumb:hover { background: #a3ecd9; }
         body.dark-mode ::-webkit-scrollbar-track { background: var(--text-dark); }
     `;
-    document.head.appendChild(s);
+    document.head.appendChild(s);    
 }
 
 /*// ====================================
@@ -938,9 +940,8 @@ function showToast(message, type = 'info') {
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(-20px)';
         setTimeout(() => toast.remove(), 300);
-    }, 4000);
+    }, 4000);    
 }
-
 function disableButton(selector) {
     const btn = $(selector);
     if (!btn) return;
@@ -948,7 +949,7 @@ function disableButton(selector) {
     btn.style.opacity = '0.6';
     btn.style.cursor = 'not-allowed';
     btn.style.pointerEvents = 'none';
-    btn.dataset.originalText = btn.innerHTML;
+    btn.dataset.originalText = btn.innerHTML;    
 }
 function enableButton(selector) {
     const btn = $(selector);
@@ -960,7 +961,7 @@ function enableButton(selector) {
     if (btn.dataset.originalText) {
         btn.innerHTML = btn.dataset.originalText;
         delete btn.dataset.originalText;
-    }
+    }    
 }
 
 /*// ====================================
@@ -971,21 +972,122 @@ function ensureYinYangStyles() {
     const s = document.createElement('style');
     s.id = 'yinYangStyles';
     s.textContent = `
-        .yy-overlay{position:fixed;inset:0;background:rgba(17,24,39,.55);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:100000}
-        .yy{width:84px;height:84px;border-radius:50%;position:relative;animation:yyspin 1.3s linear infinite;background:conic-gradient(#000 0 180deg,#fff 180deg 360deg)}
-        .yy::before,.yy::after{content:"";position:absolute;border-radius:50%}
-        .yy::before{width:42px;height:42px;left:21px;top:0;background:#000;box-shadow:0 42px 0 #fff}
-        .yy::after{width:12px;height:12px;left:30px;top:15px;background:#fff;box-shadow:0 42px 0 #000}
-        .yy-label{margin-top:14px;font-weight:700;color:#fff;text-align:center}
-        @keyframes yyspin{to{transform:rotate(360deg)}}
-        .yy-anchor{display:inline-flex;align-items:center;gap:8px}
-        .yy-mini{width:18px;height:18px;border-radius:50%;position:relative;display:inline-block;animation:yyspin 1.1s linear infinite;background:conic-gradient(#000 0 180deg,#fff 180deg 360deg)}
-        .yy-mini::before,.yy-mini::after{content:"";position:absolute;border-radius:50%}
-        .yy-mini::before{width:9px;height:9px;left:4.5px;top:0;background:#000;box-shadow:0 9px 0 #fff}
-        .yy-mini::after{width:4px;height:4px;left:7px;top:3px;background:#fff;box-shadow:0 9px 0 #000}
-        .yy-fab{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
-        .yy-fab .yy-mini{width:20px;height:20px}
-        .yy-has-inline{position:relative}
+.yy-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(17,24,39,.55);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+}
+
+.yy {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    position: relative;
+    animation: yyspin 1.3s linear infinite;
+    background: conic-gradient(#000 0 180deg, #fff 180deg 360deg);
+}
+
+.yy::before,
+.yy::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+}
+
+.yy::before {
+    width: 42px;
+    height: 42px;
+    left: 21px;
+    top: 0;
+    background: #000;
+    box-shadow: 0 42px 0 #fff;
+}
+
+.yy::after {
+    width: 12px;
+    height: 12px;
+    left: 30px;
+    top: 15px;
+    background: #fff;
+    box-shadow: 0 42px 0 #000;
+}
+
+.yy-label {
+    margin-top: 14px;
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+}
+
+@keyframes yyspin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.yy-anchor {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.yy-mini {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    position: relative;
+    display: inline-block;
+    animation: yyspin 1.1s linear infinite;
+    background: conic-gradient(#000 0 180deg, #fff 180deg 360deg);
+}
+
+.yy-mini::before,
+.yy-mini::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+}
+
+.yy-mini::before {
+    width: 9px;
+    height: 9px;
+    left: 4.5px;
+    top: 0;
+    background: #000;
+    box-shadow: 0 9px 0 #fff;
+}
+
+.yy-mini::after {
+    width: 4px;
+    height: 4px;
+    left: 7px;
+    top: 3px;
+    background: #fff;
+    box-shadow: 0 9px 0 #000;
+}
+
+.yy-fab {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.yy-fab .yy-mini {
+    width: 20px;
+    height: 20px;
+}
+
+.yy-has-inline {
+    position: relative;
+}
     `;
     document.head.appendChild(s);
 }
@@ -1155,8 +1257,8 @@ function initTheme() {
 }
 
 /* =======================================================================
-   📱 View Mode (Smartphone vs PC)
-   ======================================================================= */
+// 📱 View Mode (Smartphone vs PC)
+// ======================================================================= */
 function getCurrentViewMode() {
     return document.body.classList.contains('phone-mode') ? 'phone' : 'pc';
 }
@@ -1192,17 +1294,9 @@ function initViewMode() {
 
 /*// ====================================
 // 🧷 Backward-compatibility aliases (Theme)
-//  - Older code might call these expecting DARK/LIGHT, not PC/PHONE
 // ====================================*/
-function getCurrentDarkMode() {
-    // Return 'dark' or 'light' to reflect THEME
-    return getCurrentTheme();
-}
-
-function applyDarkMode(mode) {
-    // Accepts 'dark' or 'light' (anything else falls back to 'light')
-    applyTheme(mode === 'dark' ? 'dark' : 'light', true);
-}
+function getCurrentDarkMode() { return getCurrentTheme(); }
+function applyDarkMode(mode) { applyTheme(mode === 'dark' ? 'dark' : 'light', true); }
 
 /*// ====================================
 // 🔁 View Mode toggle (PC/Phone)
@@ -1233,23 +1327,16 @@ function setupThemeToggle() {
 
 /* DOM boot reinforcement: safe, idempotent */
 document.addEventListener('DOMContentLoaded', () => {
-    // Keep dark/light mode via #darkModeToggle (initTheme is called during boot)
     try { initViewMode?.(); } catch {}
     try { setupThemeToggle?.(); } catch {}
-
-    // i18n and action wiring are handled in boot; reinforce here idempotently
     try { updateI18nInDOM?.(document); } catch {}
     try { wireActions?.(); } catch {}
-
-    /* ✅ Ensure print/PDF overrides are active */
     try { injectPrintFixes?.(); } catch {}
 });
 
 /*// ====================================
-    // 🧱 Meta theme-color sync (browser chrome)
-    //  - Exposes window.syncBrowserThemeColor(theme)
-    //  - Avoids overriding if already defined elsewhere
-    // ====================================*/
+// 🧱 Meta theme-color sync (browser chrome)
+// ====================================*/
 (function () {
     function normalizeHex(color) {
         if (typeof color !== 'string') return '#D4AF37';
@@ -1935,13 +2022,10 @@ function collectFilledData() {
     };
 }
 
-
 /*// ====================================
 // 🖼️ Logo Helpers (local/remote/fallback)
 // ====================================*/
-const LOGO_BASE64_FALLBACK = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjIwIiBoZWlnaHQ9IjIyMCIgdmlld0JveD0iMCAwIDIyMCAyMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHJhZGlhbEdyYWRpZW50IGlkPSJnIiBjeD0iNTAlIiBjeT0iNTAlIiByPSI3MCI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzEyYTA4ZiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzBmNzY2ZSIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPjxjaXJjbGUgY3g9IjExMCIgY3k9IjExMCIgcj0iMTAwIiBmaWxsPSJ1cmwoI2cpIiBzdHJva2U9IiNkNGFmMzciIHN0cm9rZS13aWR0aD0iMTAiLz48Y2lyY2xlIGN4PSIxMTAiIGN5PSIxMTAiIHI9Ijg0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmMmUzYTYiIHN0cm9rZS13aWR0aD0iMyIgb3BhY2l0eT0iLjgiLz48dGV4dCB4PSIxMTAiIHk9IjEzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Ik5vdG8gU2VyaWYgU0MsIHNlcmlmIiBmb250LXNpemU9Ijk2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjYmYxZTJlIj7kuK3lvI08L3RleHQ+PC9zdmc+";
-
-// Pin a known-good commit; fall back to main if needed
+const LOGO_BASE64_FALLBACK = "data:image/svg+xml;base64,PHN2ZyB3aWQ9IjIyMCIgaGVpZ2h0PSIyMjAiIHZpZXdCb3g9IjAgMCAyMjAgMjIwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwhLS0gKGVtYmVkIGxvZ28gZmFsbGJhY2spIC0tPjwvc3ZnPg==";
 const REPO_COMMIT_SHA = "18a7e5a28929655ad6bc1bc81d35b3bb6cb3505d";
 
 async function chooseWorkingLogoSrc() {
@@ -2016,11 +2100,6 @@ async function toDataURL(url) {
 
 /*// ====================================
 // 🧱 PDF/Print HTML (shared) — single source of truth (Preview → Print/PDF/WhatsApp)
-//  — Keeps your original print CSS as-is
-//  — Desktop PRINT → Paged.js (native dialog, perfect pagination)
-//  — Mobile PRINT → generate PDF blob (share/open → print from viewer)
-//  — PDF button → generate/download (desktop & phone)
-//  — WhatsApp button → attach PDF via Web Share (fallback: download + wa.me)
 // ====================================*/
 function getSharedStyles() {
     /* NOTE: requested to keep the print style “beautiful and perfect”.
@@ -2387,8 +2466,6 @@ function buildDocHTMLForPaged(exportData, logoSrc) {
 
 /*// ====================================
 // 🖨️ Print: unified behavior
-//  — Desktop: Paged.js → native print dialog (exact preview look)
-//  — Phone: generate PDF blob → share/open → user prints from viewer
 // ====================================*/
 async function printDocumentUnified(exportData=null, logoSrc=null) {
     disableButton?.('#printButton');
@@ -2404,7 +2481,6 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
         }
 
         if (isMobileLike()) {
-            // Mobile: generate PDF -> open/share (consistent beauty) then user prints
             const { node, iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
             const { filename, blob } = await generatePdfBlobFromNode(node);
             await openOrSharePdfBlob(blob, filename);
@@ -2413,7 +2489,6 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
             return;
         }
 
-        // Desktop: Paged.js + native print dialog (closest to preview)
         const { iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:true });
         try { iframe.contentWindow.focus(); } catch {}
         try { iframe.contentWindow.print(); } catch {}
@@ -2487,7 +2562,6 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
         const safeName = (rawName || (currentLanguage==='pt'?'Paciente':'Patient')).replace(/[^a-zA-Z0-9]/g,'_');
         const message = t('share.message', { name: rawName || safeName });
 
-        // Preferred: Web Share Level 2 with files (shows WhatsApp if installed)
         try {
             if (navigator.canShare && navigator.canShare({ files:[file] })) {
                 await navigator.share({ files:[file], title: filename, text: message });
@@ -2496,13 +2570,12 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
             }
         } catch {}
 
-        // Fallback: download PDF + open wa.me with message
         await triggerDownloadBlob(filename, blob);
         const e164 = phoneE164IfPossible();
         const base = e164 ? `https://wa.me/${e164}` : 'https://wa.me/';
         const url = `${base}?text=${encodeURIComponent(`${message}\n\n📎 ${filename}`)}`;
         window.open(url, '_blank');
-        showToast(currentLanguage==='pt' ? 'PDF baixado e WhatsApp aberto.' : 'PDF downloaded and WhatsApp opened.', 'success');
+        showToast(t('toasts.pdfDownloadedAndOpeningWhatsapp') || (currentLanguage==='pt' ? 'PDF baixado. Abrindo WhatsApp...' : 'PDF downloaded. Opening WhatsApp...'), 'success');
     } catch (err) {
         console.error('sharePdfToWhatsApp error:', err);
         showToast(t('errors.shareFailed'), 'error');
@@ -2527,12 +2600,15 @@ async function generatePdfBlobFromNode(node) {
     const width  = Math.max(node.scrollWidth, 794);
     const height = Math.max(node.scrollHeight, 1123);
 
+    // DPI/qualidade: escala adaptativa com teto (evita PDFs gigantes em celulares muito densos)
+    const dpr = Math.max(1, Math.min(3, (window.devicePixelRatio || 1) * (isMobileLike() ? 1.2 : 1.5)));
+
     const blob = await window.html2pdf().set({
         margin:[14,14,14,14],
         filename,
         image:{ type:'jpeg', quality:0.98 },
         html2canvas:{
-            scale: isMobileLike() ? 2.0 : 2.4,
+            scale: dpr,
             useCORS:true,
             allowTaint:false,
             backgroundColor:'#ffffff',
@@ -2544,10 +2620,12 @@ async function generatePdfBlobFromNode(node) {
             removeContainer:true,
             onclone:(clonedDoc)=>{
                 try{
+                    // Garante que pseudo-elementos decorativos existam (mantém o visual), mas sem sombras pesadas
                     const s = clonedDoc.createElement('style');
                     s.id = 'pdf-pseudo-reset';
-                    s.textContent = '*::before,*::after{content:"" !important} *{box-shadow:none !important;filter:none !important;}';
+                    s.textContent = '*{box-shadow:none !important;filter:none !important;}';
                     clonedDoc.head.appendChild(s);
+                    // Remove ícones FA para evitar tofu em algumas renderizações
                     clonedDoc.querySelectorAll('i[class*="fa-"], i.fa, i.fas, i.far, i.fab').forEach(el => el.remove());
                 }catch{}
             }
@@ -2560,7 +2638,6 @@ async function generatePdfBlobFromNode(node) {
 }
 
 async function openOrSharePdfBlob(blob, filename) {
-    // Desktop → download. Mobile → try share, else open + download.
     try {
         const file = new File([blob], filename, { type: 'application/pdf' });
         if (isMobileLike() && navigator.canShare && navigator.canShare({ files:[file] })) {
@@ -2575,7 +2652,6 @@ async function openOrSharePdfBlob(blob, filename) {
 
     await triggerDownloadBlob(filename, blob);
 
-    // Also open a viewer tab if popups aren’t blocked (helps printing on phones without share)
     try {
         const url = URL.createObjectURL(blob);
         const win = window.open(url, '_blank');
@@ -2595,17 +2671,21 @@ async function triggerDownloadBlob(filename, blob) {
 }
 
 /*// ====================================
-// 🎯 PREVIEW MODAL SYSTEM (keeps your style, closes ONLY on “X”)
+// 🎯 PREVIEW MODAL SYSTEM
 // ====================================*/
 let currentExportData = null;
 let currentLogoSrc = null;
 let _previewCleanup = null;
 
+/*  ✅ IMPORTANT FIX:
+    - Define showPreviewModal as a **function declaration** (hoisted).
+    - Immediately mirror it to window/globalThis to avoid scope issues.
+    - prepareExport() (below) resolves it safely before calling.
+*/
 async function showPreviewModal(exportData, logoSrc) {
     currentExportData = exportData;
     currentLogoSrc = logoSrc;
 
-    // If a previous modal exists, close it first for idempotency
     try { closePreviewModal(); } catch {}
 
     const modal = document.createElement('div');
@@ -2640,7 +2720,6 @@ async function showPreviewModal(exportData, logoSrc) {
     `;
     document.body.appendChild(modal);
 
-    // Lock page scroll while modal is open
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -2658,7 +2737,6 @@ async function showPreviewModal(exportData, logoSrc) {
     };
     iframe.srcdoc = docHTML;
 
-    // Handlers — NOTE: only the “X” closes the modal now (Edit will close explicitly)
     const onCloseClick = () => closePreviewModal();
 
     const withBusy = async (btn, fn) => {
@@ -2673,94 +2751,39 @@ async function showPreviewModal(exportData, logoSrc) {
     };
 
     const onPdfClick = async (e) => {
-        await withBusy(e.currentTarget, async () =>
-            (savePdfUnified?.(currentExportData, currentLogoSrc) || saveToPDF?.(currentExportData, currentLogoSrc))
-        );
+        await withBusy(e.currentTarget, async () => savePdfUnified?.(currentExportData, currentLogoSrc));
     };
     const onPrintClick = async (e) => {
-        await withBusy(e.currentTarget, async () =>
-            (printDocumentUnified?.(currentExportData, currentLogoSrc) || printDocumentPaged?.(currentExportData, currentLogoSrc))
-        );
+        await withBusy(e.currentTarget, async () => printDocumentUnified?.(currentExportData, currentLogoSrc));
     };
     const onWhatsClick = async (e) => {
-        await withBusy(e.currentTarget, async () =>
-            (sharePdfToWhatsApp?.(currentExportData, currentLogoSrc) || shareViaWhatsApp?.(currentExportData, currentLogoSrc))
-        );
+        await withBusy(e.currentTarget, async () => sharePdfToWhatsApp?.(currentExportData, currentLogoSrc));
     };
-
-    // “Edit” now returns to the form: close modal, focus a good field, and highlight briefly
     const onEditClick = async (e) => {
         await withBusy(e.currentTarget, async () => {
-            // Inject a tiny highlight style once
-            if (!document.getElementById('gd-edit-flash-style')) {
-                const s = document.createElement('style');
-                s.id = 'gd-edit-flash-style';
-                s.textContent = `
-                    .gd-edit-flash {
-                        outline: 3px solid var(--jade, #0f766e);
-                        outline-offset: 2px;
-                        transition: outline-color .8s ease, outline-offset .8s ease;
-                    }
-                `;
-                document.head.appendChild(s);
-            }
-
-            // Close preview first (restores scroll via cleanup)
             closePreviewModal();
-
-            // Wait a tick so underlying layout is ready, then focus a sensible target
             await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
-
-            // Preference order: explicit target, autofocus, first enabled text-like control
-            const findEditTarget = () => {
-                const explicit = document.querySelector('[data-edit-focus]');
-                if (explicit) return explicit;
-
-                const auto = document.querySelector('[autofocus]');
-                if (auto && !auto.disabled && auto.offsetParent !== null) return auto;
-
-                const candidates = Array.from(document.querySelectorAll('input, textarea, select'));
-                for (const el of candidates) {
-                    if (el.disabled) continue;
-                    if (el.type === 'hidden') continue;
-                    if (el.offsetParent === null) continue; // not visible
-                    return el;
-                }
-                return null;
-            };
-
-            const target = findEditTarget();
+            const target = document.querySelector('[data-edit-focus]') ||
+                           document.querySelector('[autofocus]') ||
+                           document.querySelector('input,textarea,select');
             if (target) {
-                try {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-                } catch {}
-                try {
-                    target.focus({ preventScroll: true });
-                } catch {}
-                try {
-                    target.classList.add('gd-edit-flash');
-                    setTimeout(() => target.classList.remove('gd-edit-flash'), 1200);
-                } catch {}
+                try { target.scrollIntoView({ behavior:'smooth', block:'center' }); } catch {}
+                try { target.focus({ preventScroll:true }); } catch {}
             }
         });
     };
 
-    modal.querySelector('.preview-close').addEventListener('click', onCloseClick);
-    modal.querySelector('#preview-edit-btn').addEventListener('click', onEditClick);
-    modal.querySelector('#preview-pdf-btn').addEventListener('click', onPdfClick);
-    modal.querySelector('#preview-print-btn').addEventListener('click', onPrintClick);
-    modal.querySelector('#preview-whatsapp-btn').addEventListener('click', onWhatsClick);
-
-    // DO NOT close on backdrop click or ESC anymore
-    // (No backdrop or keydown listeners registered)
+    modal.querySelector('.preview-close')?.addEventListener('click', onCloseClick);
+    modal.querySelector('#preview-edit-btn')?.addEventListener('click', onEditClick);
+    modal.querySelector('#preview-pdf-btn')?.addEventListener('click', onPdfClick);
+    modal.querySelector('#preview-print-btn')?.addEventListener('click', onPrintClick);
+    modal.querySelector('#preview-whatsapp-btn')?.addEventListener('click', onWhatsClick);
 
     modal.style.display = 'block';
 
-    // Move focus to close button for accessibility
     const closeBtn = modal.querySelector('.preview-close');
     try { closeBtn?.focus(); } catch {}
 
-    // Cleanup function to remove listeners and restore scroll when X is clicked
     _previewCleanup = () => {
         try { modal.querySelector('.preview-close')?.removeEventListener('click', onCloseClick); } catch {}
         try { modal.querySelector('#preview-edit-btn')?.removeEventListener('click', onEditClick); } catch {}
@@ -2770,6 +2793,10 @@ async function showPreviewModal(exportData, logoSrc) {
         document.body.style.overflow = prevOverflow || '';
     };
 }
+
+/* ✅ mirror preview APIs to global to prevent scope issues */
+try { window.showPreviewModal = window.showPreviewModal || showPreviewModal; } catch {}
+try { globalThis.showPreviewModal = globalThis.showPreviewModal || showPreviewModal; } catch {}
 
 function closePreviewModal() {
     const modal = document.getElementById('golden-preview-modal');
@@ -2948,6 +2975,7 @@ const previewModalStyles = `
 
 /*// ------------------------------------
 // 🔄 Unified entry: collect → open preview (keeps your original flow)
+//  ✅ SAFE RESOLVER for showPreviewModal to prevent ReferenceError
 // ------------------------------------*/
 async function prepareExport(actionType) {
     const btnMap = { preview: '#previewButton', pdf: '#savePDF', print: '#printButton', whatsapp: '#whatsappButton' };
@@ -2961,7 +2989,23 @@ async function prepareExport(actionType) {
         if (!exportData.sections?.length) { showToast(t('errors.noDataToExport'), 'warning'); return; }
         let logoSrc = await chooseWorkingLogoSrc();
         try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
-        await showPreviewModal(exportData, logoSrc);
+
+        /* ✅ resolve the preview function robustly */
+        const openPreview =
+            (typeof showPreviewModal === 'function') ? showPreviewModal :
+            (typeof globalThis !== 'undefined' && typeof globalThis.showPreviewModal === 'function') ? globalThis.showPreviewModal :
+            (typeof window !== 'undefined' && typeof window.showPreviewModal === 'function') ? window.showPreviewModal :
+            null;
+
+        if (!openPreview) {
+            console.warn('showPreviewModal is not available; falling back to direct PDF.');
+            if (actionType === 'print') { await printDocumentUnified(exportData, logoSrc); return; }
+            if (actionType === 'whatsapp') { await sharePdfToWhatsApp(exportData, logoSrc); return; }
+            await savePdfUnified(exportData, logoSrc);
+            return;
+        }
+
+        await openPreview(exportData, logoSrc);
     } catch (e) {
         console.error('prepareExport error:', e);
         showToast(t('errors.exportFailed') || (currentLanguage === 'pt' ? 'Falha na exportação.' : 'Export failed.'), 'error');
@@ -2991,10 +3035,7 @@ function phoneE164IfPossible() {
 async function sendPreviewToWhatsApp(){
     try {
         const hasPreview = !!(currentExportData && currentExportData.sections?.length);
-        if (hasPreview) {
-            await sharePdfToWhatsApp(currentExportData, currentLogoSrc);
-            return;
-        }
+        if (hasPreview) { await sharePdfToWhatsApp(currentExportData, currentLogoSrc); return; }
         await sharePdfToWhatsApp(null, null);
     } catch (e) {
         console.error('sendPreviewToWhatsApp error:', e);
@@ -3002,11 +3043,9 @@ async function sendPreviewToWhatsApp(){
     }
 }
 
-
 /*// ====================================
 // 🪟 Modals + Autosave + Menu + Header
 // ====================================*/
-
 /*// ------------------------------------
 // 🧱 Ensure flashcard modal scaffold exists (create on demand)
 // ------------------------------------*/
@@ -3224,7 +3263,7 @@ function setupHeaderScroll(selector = 'header.app-header') {
 }
 
 /*// ====================================
-// 🎛️ Mobile FAB reveal on scroll (existing behavior preserved)
+// 🎛️ Mobile FAB reveal on scroll
 // ====================================*/
 (function () {
     const btnContainer = document.querySelector('.button-container');
@@ -3271,9 +3310,8 @@ function setupHeaderScroll(selector = 'header.app-header') {
 })();
 
 /* =======================================================================
-// 🧩 Menus & Actions (About must keep menu open; close only via ❌)
+// 🧩 Menus & Actions (About keeps menu open; close only via ❌)
 // ======================================================================= */
-
 /*// ------------------------------------
 // 🔒 Close slide-in/mobile menus (only when explicit ❌ is clicked)
 // ------------------------------------*/
@@ -3434,7 +3472,7 @@ function scrollToForm(e) {
 }
 
 /*// ====================================
-// 👥 Gender + Reset + Language (with Jade highlight)
+// 👥 Gender + Reset + Language
 // ====================================*/
 function patchI18N() {
     const pt = I18N.pt.labels, en = I18N.en.labels;
@@ -3613,6 +3651,7 @@ function wireActions() {
         ['#savePDF',        () => prepareExport('pdf')],
         ['#printButton',    () => prepareExport('print')],
         ['#whatsappButton', () => prepareExport('whatsapp')],
+        ['#previewButton',  () => prepareExport('preview')],
         ['#resetForm',      () => resetForm(document)],
         ['#themeToggle',    toggleTheme],
         ['#langPT',         () => switchLanguage('pt')],
@@ -3625,8 +3664,7 @@ function wireActions() {
 function printDocument() { window.print(); }
 
 /*// ====================================
-// 📲 Action Sheet (tap / swipe) — floating vertical FAB stack (phone/tablet only)
-//  — Minimal: only "Preview" and "Reset"
+// 📲 Action Sheet (phone/tablet)
 // ====================================*/
 function ensureActionSheet() {
     /*// ------------------------------------
@@ -3842,53 +3880,37 @@ function actionSheetClose() {
 }
 
 /*// ====================================
-    // 🧭 Boot and Initialization (guarded + idempotent + SSR-safe)
-    // - If window.__GD_HEADLESS__ === true we skip heavy UI work
-    // - Prevent double-boot across partial reloads/HTMX swaps/etc.
-    // - Defer non-critical work to idle/next tick for faster FCP
-    // ====================================*/
+// 🧭 Boot and Initialization (idempotent)
+// ====================================*/
 (function boot() {
     try {
         const g = typeof window !== 'undefined' ? window : globalThis;
-        if (g.__GD_BOOT_DONE__) return;            // idempotency guard
+        if (g.__GD_BOOT_DONE__) return;
         g.__GD_BOOT_DONE__ = true;
 
-        // Minimal i18n + theme scaffolding (works in headless too)
         try { patchI18N?.(); } catch {}
         try { ensureThemedUIStyles?.(); } catch {}
 
-        // Language detection (localStorage may be blocked in some headless/iframes → guarded)
         let savedLang = 'pt';
-        try {
-            savedLang = localStorage.getItem(LANG_KEY) || document.documentElement.getAttribute('lang') || 'pt';
-        } catch {}
+        try { savedLang = localStorage.getItem(LANG_KEY) || document.documentElement.getAttribute('lang') || 'pt'; } catch {}
         g.currentLanguage = (savedLang === 'en') ? 'en' : 'pt';
         try { document.documentElement.setAttribute('lang', g.currentLanguage); } catch {}
 
-        // If headless rendering (Puppeteer/Server), bail after minimal setup
         if (g.__GD_HEADLESS__ === true) return;
 
-        // Wire legacy shims early so inline onclick/data-action work immediately
         try { wireLegacyGlobalShims(); } catch {}
-
-        // Critical, lightweight UI init (synchronous)
         try { initTheme?.(); } catch {}
         try { ensureHeaderScrollStyles?.(); setupHeaderScroll?.('header.app-header'); } catch {}
 
-        // Non-critical heavy work → next tick / idle
         const idle = g.requestIdleCallback || ((fn) => setTimeout(fn, 0));
         idle(() => {
             try { renderAllFlashcards?.(); } catch {}
             try { enableAutosave?.(document); } catch {}
             try { attachGeneralEnhancers?.(document); } catch {}
             try { updateI18nInDOM?.(document); } catch {}
-
             try { setupMobileMenu?.(); } catch {}
             try { wireActions?.(); } catch {}
-
             try { ensureActionSheet?.(); } catch {}
-
-            // Gender-specific toggles (tolerant to empty store)
             try {
                 const gstate = readStore?.() || {};
                 if (gstate.gender === 'female') { try { showFemale?.(); } catch {} }
@@ -3896,35 +3918,28 @@ function actionSheetClose() {
             } catch {}
         });
 
-        // Finally, set up legacy onclicks/data-action wiring (idempotent)
         try { setupLegacyOnClicks(); } catch {}
-    } catch (e) {
-        console.warn('Boot error:', e);
-    }
+    } catch (e) { console.warn('Boot error:', e); }
 })();
 
 /*// ====================================
-    // 🧭 Backwards-compat shims (GLOBAL)
-    // - Guarantees inline onclick="saveToPDF()" works
-    // - Maps legacy names → unified implementations without redeclaration
-    // - Safe even if site overrides already exist
-    // ====================================*/
+// 🧭 Backwards-compat shims (GLOBAL)
+// ====================================*/
 function wireLegacyGlobalShims(){
     const g = typeof window !== 'undefined' ? window : globalThis;
-
-    // Primary modern APIs (ensure they exist before mapping)
-    //  - printDocumentUnified / savePdfUnified / sharePdfToWhatsApp are defined elsewhere in your file.
     const map = {
         printDocumentSmart:       () => g.printDocumentUnified,
         saveToPDF:                () => g.savePdfUnified,
         shareViaWhatsApp:         () => g.sharePdfToWhatsApp,
-        // Extra aliases found in your codebase / historically referenced:
-        printDocumentPaged:       () => g.printDocumentUnified,     // desktop uses Paged.js internally
+        printDocumentPaged:       () => g.printDocumentUnified,
         exportPDFPaged:           () => g.savePdfUnified,
         shareViaWhatsAppPaged:    () => g.sharePdfToWhatsApp,
-        sendPreviewToWhatsApp:    () => g.sharePdfToWhatsApp        // convenience alias
+        sendPreviewToWhatsApp:    () => g.sharePdfToWhatsApp,
+        // expose preview APIs too
+        showPreviewModal:         () => g.showPreviewModal || showPreviewModal,
+        closePreviewModal:        () => g.closePreviewModal || closePreviewModal,
+        prepareExport:            () => g.prepareExport || prepareExport
     };
-
     Object.keys(map).forEach((legacy) => {
         try {
             if (typeof g[legacy] !== 'function') {
@@ -3936,14 +3951,9 @@ function wireLegacyGlobalShims(){
 }
 
 /*// ====================================
-    // 🪟 Expose legacy names (onclicks antigos) — ROBUST VERSION
-    // - Uses event delegation so late/dynamic nodes work
-    // - MutationObserver rescans for [data-action] changes
-    // - Prevents default on anchors with href="#" to avoid jumps
-    // - Still mirrors functions to window for inline onclick support
-    // ====================================*/
+// 🪟 Expose legacy names and event delegation
+// ====================================*/
 function setupLegacyOnClicks(){
-    // 1) Mirror a curated allowlist from globalThis → window (inline onclick safety)
     const allow = [
         'exportPDFPaged','printDocumentPaged','printDocument',
         'saveToPDF','shareViaWhatsApp','shareViaWhatsAppPaged','sendPreviewToWhatsApp',
@@ -3951,7 +3961,6 @@ function setupLegacyOnClicks(){
         'renderAllFlashcards','resetAll','showFemale','showMale','saveFormData',
         'hydrateFromStorage','readStore','openIntroModal','scrollToForm',
         'showPreviewModal','prepareExport',
-        // Modern unified names too, for completeness:
         'printDocumentUnified','savePdfUnified','sharePdfToWhatsApp'
     ];
     const available = {};
@@ -3959,8 +3968,6 @@ function setupLegacyOnClicks(){
         const fn = (typeof globalThis[n] === 'function') ? globalThis[n] : null;
         if (fn) { try { window[n] = fn; } catch {} available[n] = fn; }
     }
-
-    // 2) Resolve handler name → function, honoring legacy aliases
     const alias = {
         exportPDFPaged:        'savePdfUnified',
         printDocumentPaged:    'printDocumentUnified',
@@ -3976,41 +3983,20 @@ function setupLegacyOnClicks(){
         if (mapped && typeof globalThis[mapped] === 'function') return globalThis[mapped];
         return null;
     }
-
-    // 3) Event delegation: single listener for the whole document
     function clickDelegate(e){
         const el = e.target.closest?.('[data-action]');
         if (!el) return;
         const action = el.getAttribute('data-action');
         const handler = getHandler(action);
         if (typeof handler === 'function') {
-            // Avoid accidental page jumps on anchors used as buttons
             const tag = el.tagName?.toLowerCase();
             const href = el.getAttribute?.('href') || '';
             if (tag === 'a' && (href === '#' || href.startsWith('javascript:'))) e.preventDefault();
             try { handler.call(el, e); } catch (err) { console.error(`Handler error for ${action}:`, err); }
         }
     }
-
-    // Avoid duplicate delegates
     document.removeEventListener('click', clickDelegate, true);
     document.addEventListener('click', clickDelegate, true);
-
-    // 4) MutationObserver to auto-mark late nodes (optional but handy)
-    const mo = new MutationObserver((muts) => {
-        for (const m of muts) {
-            if (m.type === 'attributes' && m.attributeName === 'data-action') continue;
-            m.addedNodes?.forEach?.(node => {
-                if (!(node instanceof Element)) return;
-                // Accessibility polish for any newly added [data-action] items
-                node.querySelectorAll?.('[data-action]').forEach(btn => {
-                    if (!btn.hasAttribute('role')) btn.setAttribute('role','button');
-                    if (!btn.hasAttribute('tabindex')) btn.setAttribute('tabindex','0');
-                });
-            });
-        }
-    });
-    try { mo.observe(document.body, { subtree:true, childList:true, attributes:true, attributeFilter:['data-action'] }); } catch {}
 }
 
 /*// ====================================
@@ -4023,11 +4009,9 @@ if (typeof window !== 'undefined') {
         window.GoldenDiagnosis.buildDocHTMLForPaged  = window.GoldenDiagnosis.buildDocHTMLForPaged  || buildDocHTMLForPaged;
         window.GoldenDiagnosis.injectPrintFixes      = window.GoldenDiagnosis.injectPrintFixes      || injectPrintFixes;
         window.GoldenDiagnosis.ensureHtml2PdfLibrary = window.GoldenDiagnosis.ensureHtml2PdfLibrary || ensureHtml2PdfLibrary;
-
         if (typeof printDocumentUnified === 'function')  window.GoldenDiagnosis.print  = printDocumentUnified;
         if (typeof savePdfUnified === 'function')        window.GoldenDiagnosis.pdf    = savePdfUnified;
         if (typeof sharePdfToWhatsApp === 'function')    window.GoldenDiagnosis.share  = sharePdfToWhatsApp;
-
         window.GoldenDiagnosis.generateHTML = function (exportData, logoSrc, usePaged = false) {
             return usePaged
                 ? window.GoldenDiagnosis.buildDocHTMLForPaged(exportData, logoSrc)
