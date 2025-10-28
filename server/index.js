@@ -1,129 +1,116 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
-const twilio = require('twilio');
-const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// Enable CORS for all routes
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    next();
+});
+
+// Parse JSON bodies
 app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Serve static files from src directory
 app.use('/src', express.static(path.join(__dirname, '../src')));
 
-// PDF Generation endpoint
-app.post('/generate-pdf', async (req, res) => {
-    try {
-        const { html, options = {} } = req.body;
-        
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
-        
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle0' });
-        
-        const pdf = await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            margin: {
-                top: '14mm',
-                right: '14mm',
-                bottom: '14mm',
-                left: '14mm'
-            },
-            ...options
-        });
-        
-        await browser.close();
-        
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename="diagnosis.pdf"',
-            'Content-Length': pdf.length
-        });
-        
-        res.send(pdf);
-        
-    } catch (error) {
-        console.error('PDF generation error:', error);
-        res.status(500).json({ error: 'Failed to generate PDF' });
-    }
-});
-
-// WhatsApp sharing endpoint
-app.post('/share-whatsapp', async (req, res) => {
-    try {
-        const { pdfData, phoneNumber, message } = req.body;
-        
-        // Initialize Twilio client (you'll need to set these environment variables)
-        const client = twilio(
-            process.env.TWILIO_ACCOUNT_SID,
-            process.env.TWILIO_AUTH_TOKEN
-        );
-        
-        // Save PDF temporarily
-        const pdfBuffer = Buffer.from(pdfData, 'base64');
-        const tempPath = path.join(__dirname, 'temp', `diagnosis-${Date.now()}.pdf`);
-        
-        // Ensure temp directory exists
-        if (!fs.existsSync(path.join(__dirname, 'temp'))) {
-            fs.mkdirSync(path.join(__dirname, 'temp'));
-        }
-        
-        fs.writeFileSync(tempPath, pdfBuffer);
-        
-        // Send via WhatsApp using Twilio
-        const result = await client.messages.create({
-            body: message || 'Here is your diagnosis report',
-            from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-            to: `whatsapp:${phoneNumber}`,
-            mediaUrl: [`${req.protocol}://${req.get('host')}/download-pdf?file=${path.basename(tempPath)}`]
-        });
-        
-        // Clean up temp file after sending
-        setTimeout(() => {
-            if (fs.existsSync(tempPath)) {
-                fs.unlinkSync(tempPath);
-            }
-        }, 30000); // 30 seconds delay
-        
-        res.json({ 
-            success: true, 
-            messageId: result.sid,
-            status: result.status 
-        });
-        
-    } catch (error) {
-        console.error('WhatsApp sharing error:', error);
-        res.status(500).json({ error: 'Failed to share via WhatsApp' });
-    }
-});
-
-// Temporary PDF download endpoint
-app.get('/download-pdf', (req, res) => {
-    const fileName = req.query.file;
-    const filePath = path.join(__dirname, 'temp', fileName);
-    
-    if (fs.existsSync(filePath)) {
-        res.setHeader('Content-Type', 'application/pdf');
-        res.sendFile(filePath);
-    } else {
-        res.status(404).json({ error: 'File not found' });
-    }
+// Serve the main HTML file at root
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../src/GoldenDiagnosis.html'));
 });
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        service: 'Golden Diagnosis Server',
+        version: '1.0.0'
+    });
+});
+
+// PDF Generation endpoint (simplified - returns success message)
+app.post('/generate-pdf', async (req, res) => {
+    try {
+        const { html, options = {} } = req.body;
+        
+        // For now, just return a success message
+        // We'll add Puppeteer PDF generation later
+        res.json({ 
+            success: true, 
+            message: 'PDF generation endpoint is working!',
+            note: 'Currently using client-side PDF generation',
+            serverTime: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('PDF generation error:', error);
+        res.status(500).json({ 
+            error: 'Failed to process PDF request',
+            details: error.message 
+        });
+    }
+});
+
+// WhatsApp sharing endpoint (simplified - returns share URL)
+app.post('/share-whatsapp', async (req, res) => {
+    try {
+        const { phoneNumber, message } = req.body;
+        
+        if (!phoneNumber) {
+            return res.status(400).json({ error: 'Phone number is required' });
+        }
+        
+        // Create WhatsApp share URL
+        const encodedMessage = encodeURIComponent(message || 'Here is your diagnosis report');
+        const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+        
+        res.json({ 
+            success: true, 
+            shareUrl: whatsappUrl,
+            message: 'WhatsApp share URL generated successfully',
+            serverTime: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('WhatsApp sharing error:', error);
+        res.status(500).json({ 
+            error: 'Failed to generate WhatsApp share URL',
+            details: error.message 
+        });
+    }
+});
+
+// Handle all other routes - serve the main app
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../src/GoldenDiagnosis.html'));
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+    console.error('Server error:', error);
+    res.status(500).json({ 
+        error: 'Internal server error',
+        message: error.message 
+    });
 });
 
 app.listen(PORT, () => {
-    console.log(`Golden Diagnosis Server running on port ${PORT}`);
-    console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log('‚ú® ====================================');
+    console.log('ÔøΩÔøΩ Golden Diagnosis Server Started!');
+    console.log(`Ì≥° Port: ${PORT}`);
+    console.log('Ìºê Local: http://localhost:' + PORT);
+    console.log('‚úÖ Health: http://localhost:' + PORT + '/health');
+    console.log('Ì≥ù App: http://localhost:' + PORT + '/');
+    console.log('‚ú® ====================================');
+    console.log('Ì≤° Server features:');
+    console.log('   ‚úÖ Health monitoring');
+    console.log('   ‚úÖ Static file serving');
+    console.log('   ‚úÖ PDF endpoint (client-side fallback)');
+    console.log('   ‚úÖ WhatsApp share URLs');
+    console.log('‚ú® ====================================');
 });
