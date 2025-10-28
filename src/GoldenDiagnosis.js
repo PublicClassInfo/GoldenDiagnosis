@@ -2517,7 +2517,7 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
 // 🌐 Server Integration for PDF & WhatsApp
 // ====================================*/
 const SERVER_CONFIG = {
-    baseUrl: 'http://localhost:3000', // Change to your server URL in production
+    baseUrl: 'http://localhost:3000',
     endpoints: {
         pdf: '/generate-pdf',
         whatsapp: '/share-whatsapp'
@@ -2526,52 +2526,54 @@ const SERVER_CONFIG = {
 
 async function generatePdfOnServer(exportData, logoSrc) {
     try {
-        showYinYangLoader('Generating high-quality PDF...');
-        
-        const html = buildDocHTML(exportData, logoSrc);
+        showYinYangLoader('Checking server...');
         
         const response = await fetch(`${SERVER_CONFIG.baseUrl}${SERVER_CONFIG.endpoints.pdf}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                html: html,
-                options: {
-                    format: 'A4',
-                    printBackground: true,
-                    margin: { top: '14mm', right: '14mm', bottom: '14mm', left: '14mm' }
-                }
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ html: buildDocHTML(exportData, logoSrc) })
         });
         
-        if (!response.ok) {
-            throw new Error(`Server responded with ${response.status}`);
+        const result = await response.json();
+        
+        if (result.fallback) {
+            showToast('Using client-side PDF generation', 'info');
+            throw new Error('Server in minimal mode');
         }
         
-        const pdfBlob = await response.blob();
-        const filename = `diagnosis_${Date.now()}.pdf`;
-        
-        // Trigger download
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        showToast('High-quality PDF generated successfully!', 'success');
-        return pdfBlob;
+        // If server returns actual PDF, handle it here
+        // For now, we'll always use client-side
+        throw new Error('Server PDF not available');
         
     } catch (error) {
-        console.error('Server PDF generation failed:', error);
-        showToast('Server PDF failed, using client-side generation', 'warning');
-        // Fallback to client-side generation
-        return await generatePdfBlobFromNode(await renderDocInIframe(exportData, logoSrc));
+        // Fallback to client-side
+        const result = await renderDocInIframe(exportData, logoSrc);
+        const generated = await generatePdfBlobFromNode(result.node);
+        return generated.blob;
     } finally {
         hideYinYangLoader();
+    }
+}
+
+async function shareViaWhatsAppServer(pdfBlob, phoneNumber) {
+    try {
+        const message = t('share.message', { 
+            name: readStore()?.patientName || 'Patient' 
+        });
+        
+        const response = await fetch(`${SERVER_CONFIG.baseUrl}${SERVER_CONFIG.endpoints.whatsapp}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phoneNumber, message })
+        });
+        
+        const result = await response.json();
+        window.open(result.shareUrl, '_blank');
+        showToast('WhatsApp share opened!', 'success');
+        
+    } catch (error) {
+        // Fallback to client-side WhatsApp
+        throw error;
     }
 }
 

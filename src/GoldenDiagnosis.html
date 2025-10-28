@@ -18,7 +18,7 @@
     <meta name="author" content="Public Class Info">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://publicclassinfo.com/GoldenDiagnosis">
-    <link rel="icon" type="image/png" href="Images/MariaLogo.png">
+    <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/Images/MariaLogo.png">
 
     <!--// ====================================
     // 🔗 Open Graph / Social Media
@@ -27,12 +27,12 @@
     <meta property="og:description" content="Formulário completo para diagnóstico em medicina tradicional chinesa">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://publicclassinfo.com/GoldenDiagnosis">
-    <meta property="og:image" content="Images/MariaLogo1.jpg">
+    <meta property="og:image" content="https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/Images/MariaLogo1.jpg">
 
     <!--// ====================================
     // 📦 External Resources
     // ====================================-->
-    <link rel="stylesheet" href="GoldenDiagnosis.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/GoldenDiagnosis.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
@@ -65,7 +65,7 @@
     <header class="app-header">
         <div class="header-content">
             <div class="logo-container">
-                <img id="brandLogo" src="Images/MariaLogo.png" alt="Diagnóstico de Ouro">
+                <img id="brandLogo" src="https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/Images/MariaLogo.png" alt="Diagnóstico de Ouro">
                 <div class="header-text">
                     <h1 data-i18n="titles.form"></h1>
                     <p data-i18n="titles.mentorship"></p>
@@ -293,8 +293,19 @@
     </footer>
 
     <!--// ====================================
-    // 🧠 JavaScript (local path so the build can inline)
+    // 🌐 Server Configuration
     // ====================================-->
-    <script src="GoldenDiagnosis.js"></script>
+    <script>
+        // Server configuration
+        window.SERVER_CONFIG = {
+            baseUrl: 'http://localhost:3000', // Change to your actual server URL
+            enabled: true
+        };
+    </script>
+
+    <!--// ====================================
+    // 🧠 JavaScript (CDN path for production)
+    // ====================================-->
+    <script src="https://cdn.jsdelivr.net/gh/PublicClassInfo/GoldenDiagnosis@main/src/GoldenDiagnosis.js"></script>
 </body>
 </html>
