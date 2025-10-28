@@ -2524,29 +2524,52 @@ const SERVER_CONFIG = {
     }
 };
 
+async function checkServerHealth() {
+    try {
+        const response = await fetch(`${SERVER_CONFIG.baseUrl}/health`);
+        return response.ok;
+    } catch (error) {
+        console.log('Server health check failed:', error.message);
+        return false;
+    }
+}
+
 async function generatePdfOnServer(exportData, logoSrc) {
     try {
-        showYinYangLoader('Checking server...');
+        showYinYangLoader('Checking server connection...');
+        
+        // Check if server is available
+        const isHealthy = await checkServerHealth();
+        if (!isHealthy) {
+            throw new Error('Server not available');
+        }
+        
+        const html = buildDocHTML(exportData, logoSrc);
         
         const response = await fetch(`${SERVER_CONFIG.baseUrl}${SERVER_CONFIG.endpoints.pdf}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ html: buildDocHTML(exportData, logoSrc) })
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                html: html,
+                patientName: readStore()?.patientName || 'Unknown'
+            })
         });
+        
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
         
         const result = await response.json();
         
-        if (result.fallback) {
-            showToast('Using client-side PDF generation', 'info');
-            throw new Error('Server in minimal mode');
-        }
-        
-        // If server returns actual PDF, handle it here
-        // For now, we'll always use client-side
-        throw new Error('Server PDF not available');
+        // Server returns success message but no PDF - use client-side
+        showToast('Server connected! Using client-side PDF generation.', 'success');
+        throw new Error('Server PDF generation not implemented yet');
         
     } catch (error) {
-        // Fallback to client-side
+        console.log('Server PDF failed, using client-side:', error.message);
+        // Fallback to client-side generation
         const result = await renderDocInIframe(exportData, logoSrc);
         const generated = await generatePdfBlobFromNode(result.node);
         return generated.blob;
@@ -2557,23 +2580,40 @@ async function generatePdfOnServer(exportData, logoSrc) {
 
 async function shareViaWhatsAppServer(pdfBlob, phoneNumber) {
     try {
-        const message = t('share.message', { 
-            name: readStore()?.patientName || 'Patient' 
-        });
+        showYinYangLoader('Preparing WhatsApp share...');
+        
+        const patientName = readStore()?.patientName || 'Patient';
+        const message = t('share.message', { name: patientName });
         
         const response = await fetch(`${SERVER_CONFIG.baseUrl}${SERVER_CONFIG.endpoints.whatsapp}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phoneNumber, message })
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                phoneNumber: phoneNumber,
+                message: message
+            })
         });
         
+        if (!response.ok) {
+            throw new Error(`WhatsApp server error: ${response.status}`);
+        }
+        
         const result = await response.json();
+        
+        // Open WhatsApp with the share URL
         window.open(result.shareUrl, '_blank');
         showToast('WhatsApp share opened!', 'success');
         
+        return result;
+        
     } catch (error) {
-        // Fallback to client-side WhatsApp
-        throw error;
+        console.log('Server WhatsApp failed:', error.message);
+        showToast('Using client-side WhatsApp sharing', 'info');
+        throw error; // This will trigger the fallback in the preview modal
+    } finally {
+        hideYinYangLoader();
     }
 }
 
