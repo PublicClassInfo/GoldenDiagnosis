@@ -2023,7 +2023,7 @@ async function toDataURL(url) {
 //  — WhatsApp button → attach PDF via Web Share (fallback: download + wa.me)
 // ====================================*/
 function getSharedStyles() {
-    /* NOTE: requested to keep the print style “beautiful and perfect”.
+    /* NOTE: requested to keep the print style "beautiful and perfect".
        The block below is preserved verbatim (minor whitespace only). */
     return `
         <style>
@@ -2174,6 +2174,292 @@ function getSharedStyles() {
 }
 
 /*// ====================================
+// 🎨 ENHANCED PDF STYLING (Beautiful like Print.pdf)
+// ====================================*/
+function getEnhancedStyles() {
+    return `
+        <style>
+            @page { 
+                size: A4; 
+                margin: 15mm;
+                @bottom-left {
+                    content: "Confidencial - Uso Terapêutico";
+                    font-size: 10px;
+                    color: #666;
+                }
+            }
+
+            :root {
+                --jade: #0f766e;
+                --jade-light: #7fdbca;
+                --jade-dark: #006b4d;
+                --gold: #D4AF37;
+                --gold-light: #FFE57E;
+                --cinnabar: #C62a2a;
+                --text-dark: #2C3E50;
+                --text-light: #F8F9FA;
+                --border-color: #e0e0e0;
+                --header-bg: #f8fdfb;
+            }
+
+            * { 
+                box-sizing: border-box; 
+                margin: 0; 
+                padding: 0; 
+            }
+
+            body {
+                font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+                line-height: 1.5;
+                color: var(--text-dark);
+                background: #ffffff;
+                font-size: 13px;
+            }
+
+            .page {
+                width: 794px;
+                min-height: 1123px;
+                margin: 0 auto;
+                padding: 20mm;
+                position: relative;
+                background: #ffffff;
+            }
+
+            /* Enhanced Header */
+            .document-header {
+                text-align: center;
+                margin-bottom: 25px;
+                padding-bottom: 20px;
+                border-bottom: 3px double var(--gold);
+            }
+
+            .document-title {
+                font-family: 'Georgia', 'Times New Roman', serif;
+                font-size: 28px;
+                font-weight: 700;
+                color: var(--jade-dark);
+                margin-bottom: 8px;
+                letter-spacing: 0.5px;
+            }
+
+            .document-subtitle {
+                font-family: 'Georgia', 'Times New Roman', serif;
+                font-size: 18px;
+                font-weight: 600;
+                color: var(--cinnabar);
+                margin-bottom: 15px;
+                font-style: italic;
+            }
+
+            .generation-info {
+                font-size: 12px;
+                color: #666;
+                background: var(--header-bg);
+                padding: 8px 15px;
+                border-radius: 20px;
+                display: inline-block;
+                border: 1px solid var(--gold-light);
+            }
+
+            /* Enhanced Patient Information */
+            .patient-section {
+                background: linear-gradient(135deg, #f8fdfb, #f0f9f6);
+                border-left: 5px solid var(--jade);
+                border-radius: 8px;
+                padding: 20px;
+                margin: 20px 0;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+
+            .patient-section h2 {
+                font-family: 'Georgia', serif;
+                color: var(--jade-dark);
+                font-size: 18px;
+                font-weight: 700;
+                margin-bottom: 15px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid var(--gold-light);
+            }
+
+            .patient-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 12px;
+            }
+
+            .patient-item {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .patient-label {
+                font-weight: 700;
+                font-size: 11px;
+                color: var(--jade);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
+            }
+
+            .patient-value {
+                font-size: 14px;
+                color: var(--text-dark);
+                font-weight: 500;
+            }
+
+            /* Enhanced Sections */
+            .data-section {
+                margin: 25px 0;
+                break-inside: avoid;
+            }
+
+            .section-header {
+                background: linear-gradient(135deg, var(--jade), var(--jade-dark));
+                color: white;
+                padding: 12px 18px;
+                border-radius: 6px 6px 0 0;
+                font-family: 'Georgia', serif;
+                font-size: 16px;
+                font-weight: 700;
+            }
+
+            .section-content {
+                border: 1px solid var(--border-color);
+                border-top: none;
+                border-radius: 0 0 6px 6px;
+                padding: 18px;
+                background: #fff;
+            }
+
+            .data-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+                gap: 15px;
+            }
+
+            .data-item {
+                background: #fafafa;
+                border: 1px solid #e8e8e8;
+                border-radius: 6px;
+                padding: 12px 15px;
+                position: relative;
+            }
+
+            .data-item::before {
+                content: "";
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 4px;
+                background: linear-gradient(to bottom, var(--jade), var(--gold));
+                border-radius: 6px 0 0 6px;
+            }
+
+            .data-label {
+                font-weight: 700;
+                font-size: 11px;
+                color: var(--jade-dark);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 6px;
+                display: block;
+            }
+
+            .data-value {
+                font-size: 13px;
+                color: var(--text-dark);
+                line-height: 1.4;
+            }
+
+            /* Pulse Section - Special Formatting */
+            .pulse-section .data-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+
+            .pulse-item {
+                text-align: center;
+                background: #fff;
+                border: 2px solid var(--gold-light);
+                border-radius: 8px;
+                padding: 15px 10px;
+            }
+
+            .pulse-item.checked {
+                background: linear-gradient(135deg, #f0f9f6, #e6f7f2);
+                border-color: var(--jade);
+            }
+
+            /* Tongue Section - Special Formatting */
+            .tongue-section .data-grid {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+
+            .tongue-item {
+                text-align: center;
+                background: #fff;
+                border: 2px solid var(--gold-light);
+                border-radius: 8px;
+                padding: 12px 8px;
+            }
+
+            .tongue-item.checked {
+                background: linear-gradient(135deg, #fff9f0, #fff4e6);
+                border-color: var(--gold);
+            }
+
+            /* Footer */
+            .document-footer {
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 2px solid var(--gold);
+                text-align: center;
+                color: #666;
+                font-size: 11px;
+                background: var(--header-bg);
+                padding: 15px;
+                border-radius: 8px;
+            }
+
+            /* Print Optimizations */
+            @media print {
+                .page {
+                    width: auto;
+                    min-height: auto;
+                    padding: 0;
+                    margin: 0;
+                    box-shadow: none;
+                }
+                
+                .data-section {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+                
+                .patient-section {
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                }
+            }
+
+            /* Responsive */
+            @media (max-width: 768px) {
+                .page {
+                    width: 100%;
+                    padding: 10mm;
+                }
+                
+                .patient-grid,
+                .data-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Georgia&display=swap" rel="stylesheet">
+    `;
+}
+
+/*// ====================================
 // 🧯 Print & PDF Fixes (no cropping, stable tables)
 // ====================================*/
 function injectPrintFixes() {
@@ -2278,433 +2564,238 @@ function buildDocHTML(exportData, logoSrc) {
 }
 
 /*// ====================================
-// 🔧 Utilities (assets, device, iframe)
+// 🎯 ENHANCED PDF CONTENT BUILDER
 // ====================================*/
-async function ensureHtml2PdfLibrary() {
-    const already = typeof window.html2pdf === 'function' ||
-        Array.from(document.scripts).some(s => /html2pdf\.bundle\.min\.js/i.test(s.src));
-    if (already) return;
-    const TARGET_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-    await new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = TARGET_URL;
-        s.async = true;
-        s.onload = () => res(true);
-        s.onerror = () => rej(new Error('Failed to load html2pdf 0.10.1'));
-        document.head.appendChild(s);
-    });
-}
+function buildEnhancedDocHTML(exportData, logoSrc) {
+    const patientData = readStore() || {};
+    
+    // Format date properly
+    const today = new Date();
+    const formattedDate = currentLanguage === 'pt' 
+        ? today.toLocaleDateString('pt-BR')
+        : today.toLocaleDateString('en-US');
 
-async function waitForAssetsWindow(w, timeoutMs = 5000) {
-    try {
-        const doc = w.document;
-        const imgs = Array.from(doc.images || []);
-        await Promise.race([
-            (async () => {
-                await Promise.all(imgs.map(img => {
-                    if (img.complete && img.naturalWidth) return;
-                    return new Promise(r => {
-                        img.addEventListener('load', r, { once:true });
-                        img.addEventListener('error', r, { once:true });
-                        setTimeout(r, 3500);
-                    });
-                }));
-                if (doc.fonts && doc.fonts.ready) { try { await doc.fonts.ready; } catch {} }
-            })(),
-            new Promise(r => setTimeout(r, timeoutMs))
-        ]);
-    } catch {}
-}
-
-function isAndroid(){ try { return /Android/i.test(navigator.userAgent || ""); } catch { return false; } }
-function isIOS(){
-    try {
-        const ua = navigator.userAgent || "";
-        const touchMac = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        return /iPhone|iPad|iPod/i.test(ua) || touchMac;
-    } catch { return false; }
-}
-function isMobileLike(){ try { return isAndroid() || isIOS() || (navigator.userAgentData?.mobile === true); } catch { return false; } }
-
-function createHiddenIframe() {
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.left = '-10000px';
-    iframe.style.top = '0';
-    iframe.width = 794;
-    iframe.setAttribute('aria-hidden','true');
-    document.body.appendChild(iframe);
-    return iframe;
-}
-
-async function renderDocInIframe(exportData, logoSrc, { usePaged=false } = {}) {
-    const html = usePaged
-        ? buildDocHTMLForPaged(exportData, logoSrc)
-        : buildDocHTML(exportData, logoSrc);
-
-    const iframe = createHiddenIframe();
-
-    let pagedReady = Promise.resolve();
-    if (usePaged) {
-        pagedReady = new Promise(resolve => {
-            const onMsg = e => {
-                if (e?.source === iframe.contentWindow && e?.data?.type === 'paged-ready') {
-                    window.removeEventListener('message', onMsg);
-                    resolve();
-                }
-            };
-            window.addEventListener('message', onMsg);
-            setTimeout(() => { window.removeEventListener('message', onMsg); resolve(); }, 10000);
-        });
-    }
-
-    iframe.srcdoc = html;
-    await new Promise(res => { const t = setTimeout(res, 1200); iframe.onload = () => { clearTimeout(t); res(); }; });
-    await pagedReady;
-    await waitForAssetsWindow(iframe.contentWindow);
-
-    const doc = iframe.contentDocument;
-    const node = doc.querySelector('main.page') || doc.body;
-    return { iframe, doc, node };
-}
-
-/*// ====================================
-// 🧭 Paged.js HTML wrapper (for desktop print)
-// ====================================*/
-function buildDocHTMLForPaged(exportData, logoSrc) {
-    const base = buildDocHTML(exportData, logoSrc);
-    return base.replace(
-        '</body>',
-        `<script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
-         <script>
-            document.addEventListener('pagedjs:rendered', function(){
-                try{ parent.postMessage({type:'paged-ready'}, '*'); }catch(e){}
-            });
-         </script>
-        </body>`
-    );
-}
-
-/*// ====================================
-// 🖨️ Print: unified behavior
-//  — Desktop: Paged.js → native print dialog (exact preview look)
-//  — Phone: generate PDF blob → share/open → user prints from viewer
-// ====================================*/
-async function printDocumentUnified(exportData=null, logoSrc=null) {
-    disableButton?.('#printButton');
-    showYinYangLoader(t('toasts.generatingPDF'), '#printButton');
-    injectPrintFixes();
-
-    try {
-        if (!exportData) { saveFormData(document, true); exportData = collectFilledData() || {}; }
-        if (!exportData.sections?.length) { showToast(t('errors.noDataToExport'), 'warning'); return; }
-        if (!logoSrc) {
-            logoSrc = await chooseWorkingLogoSrc();
-            try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
+    // Build patient information section
+    const patientFields = [
+        { key: 'patientName', label: L('patientName') },
+        { key: 'birthDate', label: L('birthDate') },
+        { key: 'phone', label: L('phone') },
+        { key: 'email', label: L('email') },
+        { key: 'address', label: L('address') },
+        { key: 'profession', label: L('profession') },
+        { key: 'maritalStatus', label: L('maritalStatus') },
+        { key: 'referral', label: L('referral') },
+        { key: 'treatmentDate', label: L('treatmentDate') },
+        { key: 'therapistName', label: L('therapistName') }
+    ].filter(f => patientData[f.key]).map(f => {
+        let value = patientData[f.key];
+        
+        // Format dates
+        if (['birthDate', 'treatmentDate', 'date'].includes(f.key) && 
+            typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            const [y, m, d] = value.split('-');
+            value = currentLanguage === 'pt' ? `${d}/${m}/${y}` : `${m}/${d}/${y}`;
         }
+        
+        // Format boolean values
+        if (typeof value === 'boolean') {
+            value = currentLanguage === 'pt' ? 'Sim' : 'Yes';
+        }
+        
+        return { ...f, value };
+    });
 
-        if (isMobileLike()) {
-            // Mobile: generate PDF -> open/share (consistent beauty) then user prints
-            const { node, iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
-            const { filename, blob } = await generatePdfBlobFromNode(node);
-            await openOrSharePdfBlob(blob, filename);
-            try { iframe.remove(); } catch {}
-            showToast(t('toasts.printReady') ?? (currentLanguage==='pt' ? 'PDF gerado para impressão.' : 'PDF generated for printing.'), 'success');
+    const patientHTML = patientFields.length ? `
+        <section class="patient-section">
+            <h2>${L('patientInfo')}</h2>
+            <div class="patient-grid">
+                ${patientFields.map(f => `
+                    <div class="patient-item">
+                        <span class="patient-label">${escapeHTML(String(f.label))}</span>
+                        <span class="patient-value">${escapeHTML(String(f.value))}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </section>
+    ` : '';
+
+    // Build sections with enhanced formatting
+    const sectionsHTML = (exportData.sections || []).map(sec => {
+        if (!sec?.entries?.length) return '';
+
+        // Special handling for Pulse and Tongue sections
+        const isPulseSection = sec.title.toLowerCase().includes('pulse') || sec.title.toLowerCase().includes('pulso');
+        const isTongueSection = sec.title.toLowerCase().includes('tongue') || sec.title.toLowerCase().includes('língua');
+
+        const sectionClass = isPulseSection ? 'pulse-section' : isTongueSection ? 'tongue-section' : '';
+
+        return `
+            <section class="data-section ${sectionClass}">
+                <div class="section-header">
+                    ${escapeHTML(String(sec.title))}
+                </div>
+                <div class="section-content">
+                    <div class="data-grid">
+                        ${sec.entries.map(entry => {
+                            const isChecked = typeof entry.value === 'string' && 
+                                (entry.value.toLowerCase().includes('sim') || 
+                                 entry.value.toLowerCase().includes('yes') ||
+                                 entry.value === 'Sim' || 
+                                 entry.value === 'Yes');
+                            
+                            const itemClass = (isPulseSection || isTongueSection) && isChecked ? 'checked' : '';
+                            
+                            return `
+                                <div class="data-item ${itemClass}">
+                                    <span class="data-label">${escapeHTML(String(entry.label))}</span>
+                                    <span class="data-value">${escapeHTML(String(entry.value))}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            </section>
+        `;
+    }).join('');
+
+    return `
+    <!DOCTYPE html>
+    <html lang="${currentLanguage}">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>${t('titles.form')} - ${patientData.patientName || 'Paciente'}</title>
+            ${getEnhancedStyles()}
+        </head>
+        <body>
+            <main class="page">
+                <!-- Enhanced Header -->
+                <header class="document-header">
+                    <h1 class="document-title">${t('titles.form')}</h1>
+                    <h2 class="document-subtitle">${t('titles.mentorship')}</h2>
+                    <div class="generation-info">
+                        ${L('generatedOn')}: ${formattedDate}
+                    </div>
+                </header>
+
+                ${patientHTML}
+                ${sectionsHTML}
+
+                <!-- Enhanced Footer -->
+                <footer class="document-footer">
+                    ${t('footer.confidential')}
+                </footer>
+            </main>
+        </body>
+    </html>`;
+}
+
+/*// ====================================
+// 🔧 ENHANCED PDF GENERATION
+// ====================================*/
+async function generateEnhancedPdf(exportData = null, logoSrc = null) {
+    disableButton?.('#savePDF');
+    showYinYangLoader(t('toasts.generatingPDF'), '#savePDF');
+
+    try {
+        if (!exportData) {
+            saveFormData(document, true);
+            exportData = collectFilledData() || {};
+        }
+        
+        if (!exportData.sections?.length) {
+            showToast(t('errors.noDataToExport'), 'warning');
             return;
         }
 
-        // Desktop: Paged.js + native print dialog (closest to preview)
-        const { iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:true });
-        try { iframe.contentWindow.focus(); } catch {}
-        try { iframe.contentWindow.print(); } catch {}
-        setTimeout(() => { try { iframe.remove(); } catch {} }, 1500);
-        showToast(t('toasts.printReady') ?? (currentLanguage==='pt' ? 'Pronto para imprimir.' : 'Ready to print.'), 'success');
-    } catch (err) {
-        console.error('printDocumentUnified error:', err);
-        showToast(t('errors.printFailed') ?? (currentLanguage==='pt' ? 'Falha ao imprimir.' : 'Print failed.'), 'error');
-    } finally {
-        hideYinYangLoader();
-        enableButton?.('#printButton');
-    }
-}
+        // Use enhanced HTML builder
+        const html = buildEnhancedDocHTML(exportData, logoSrc);
+        
+        // Create hidden iframe for rendering
+        const iframe = createHiddenIframe();
+        iframe.srcdoc = html;
+        
+        await new Promise(resolve => {
+            iframe.onload = resolve;
+            setTimeout(resolve, 1500);
+        });
 
-/*// ====================================
-// 💾 PDF: generate & download/share (desktop + phone)
-// ====================================*/
-async function savePdfUnified(exportData=null, logoSrc=null) {
-    disableButton?.('#savePDF');
-    showYinYangLoader(t('toasts.generatingPDF'), '#savePDF');
-    injectPrintFixes();
-
-    let iframe = null;
-    try {
-        if (!exportData) { saveFormData(document, true); exportData = collectFilledData() || {}; }
-        if (!exportData.sections?.length) { showToast(t('errors.noDataToExport'), 'warning'); return; }
-        if (!logoSrc) {
-            logoSrc = await chooseWorkingLogoSrc();
-            try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
-        }
-
-        const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
-        iframe = result.iframe;
-        const { filename, blob } = await generatePdfBlobFromNode(result.node);
-        await openOrSharePdfBlob(blob, filename);
-        showToast(t('toasts.pdfSaved') || (currentLanguage==='pt' ? 'PDF pronto.' : 'PDF ready.'), 'success');
-    } catch (err) {
-        console.error('savePdfUnified error:', err);
+        await waitForAssetsWindow(iframe.contentWindow);
+        
+        const node = iframe.contentDocument.querySelector('.page') || iframe.contentDocument.body;
+        
+        // Enhanced PDF options
+        const { filename, blob } = await generateEnhancedPdfBlob(node);
+        
+        // Trigger download
+        await triggerDownloadBlob(filename, blob);
+        
+        showToast(t('toasts.pdfSaved'), 'success');
+        
+    } catch (error) {
+        console.error('Enhanced PDF generation error:', error);
         showToast(t('errors.pdfFailed'), 'error');
     } finally {
-        try { iframe?.remove(); } catch {}
         hideYinYangLoader();
         enableButton?.('#savePDF');
     }
 }
 
-/*// ====================================
-// 📎 WhatsApp: attach PDF (Web Share → fallback download + wa.me)
-// ====================================*/
-async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
-    disableButton?.('#whatsappButton');
-    showYinYangLoader(t('toasts.generatingPDF'), '#whatsappButton');
-    injectPrintFixes();
-
-    let iframe = null;
-    try {
-        if (!exportData) { saveFormData(document, true); exportData = collectFilledData() || {}; }
-        if (!exportData.sections?.length) { showToast(t('errors.noDataToExport'), 'warning'); return; }
-        if (!logoSrc) {
-            logoSrc = await chooseWorkingLogoSrc();
-            try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
-        }
-
-        const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
-        iframe = result.iframe;
-
-        const { filename, blob } = await generatePdfBlobFromNode(result.node);
-        const file = new File([blob], filename, { type:'application/pdf' });
-
-        const rawName = (readStore()?.patientName || (currentLanguage==='pt'?'Paciente':'Patient')).toString().trim();
-        const safeName = (rawName || (currentLanguage==='pt'?'Paciente':'Patient')).replace(/[^a-zA-Z0-9]/g,'_');
-        const message = t('share.message', { name: rawName || safeName });
-
-        // Preferred: Web Share Level 2 with files (shows WhatsApp if installed)
-        try {
-            if (navigator.canShare && navigator.canShare({ files:[file] })) {
-                await navigator.share({ files:[file], title: filename, text: message });
-                showToast(currentLanguage==='pt' ? 'PDF anexado ao WhatsApp.' : 'PDF attached to WhatsApp.', 'success');
-                return;
-            }
-        } catch {}
-
-        // Fallback: download PDF + open wa.me with message
-        await triggerDownloadBlob(filename, blob);
-        const e164 = phoneE164IfPossible();
-        const base = e164 ? `https://wa.me/${e164}` : 'https://wa.me/';
-        const url = `${base}?text=${encodeURIComponent(`${message}\n\n📎 ${filename}`)}`;
-        window.open(url, '_blank');
-        showToast(currentLanguage==='pt' ? 'PDF baixado e WhatsApp aberto.' : 'PDF downloaded and WhatsApp opened.', 'success');
-    } catch (err) {
-        console.error('sharePdfToWhatsApp error:', err);
-        showToast(t('errors.shareFailed'), 'error');
-    } finally {
-        try { iframe?.remove(); } catch {}
-        hideYinYangLoader();
-        enableButton?.('#whatsappButton');
-    }
-}
-
-/*// ====================================
-// 🌐 Server Integration for PDF & WhatsApp
-// ====================================*/
-const SERVER_CONFIG = {
-    baseUrl: 'http://localhost:3000', // Change to your server URL in production
-    endpoints: {
-        pdf: '/generate-pdf',
-        whatsapp: '/share-whatsapp'
-    }
-};
-
-async function generatePdfOnServer(exportData, logoSrc) {
-    try {
-        showYinYangLoader('Generating high-quality PDF...');
-        
-        const html = buildDocHTML(exportData, logoSrc);
-        
-        const response = await fetch(`${SERVER_CONFIG.baseUrl}${SERVER_CONFIG.endpoints.pdf}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                html: html,
-                options: {
-                    format: 'A4',
-                    printBackground: true,
-                    margin: { top: '14mm', right: '14mm', bottom: '14mm', left: '14mm' }
-                }
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Server responded with ${response.status}`);
-        }
-        
-        const pdfBlob = await response.blob();
-        const filename = `diagnosis_${Date.now()}.pdf`;
-        
-        // Trigger download
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        showToast('High-quality PDF generated successfully!', 'success');
-        return pdfBlob;
-        
-    } catch (error) {
-        console.error('Server PDF generation failed:', error);
-        showToast('Server PDF failed, using client-side generation', 'warning');
-        // Fallback to client-side generation
-        return await generatePdfBlobFromNode(await renderDocInIframe(exportData, logoSrc));
-    } finally {
-        hideYinYangLoader();
-    }
-}
-
-async function shareViaWhatsAppServer(pdfBlob, phoneNumber, message) {
-    try {
-        showYinYangLoader('Sending via WhatsApp...');
-        
-        // Convert blob to base64 for transmission
-        const base64Data = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result.split(',')[1]);
-            reader.readAsDataURL(pdfBlob);
-        });
-        
-        const response = await fetch(`${SERVER_CONFIG.baseUrl}${SERVER_CONFIG.endpoints.whatsapp}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                pdfData: base64Data,
-                phoneNumber: phoneNumber,
-                message: message || t('share.message', { name: readStore()?.patientName || 'Patient' })
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`WhatsApp server responded with ${response.status}`);
-        }
-        
-        const result = await response.json();
-        showToast('Message sent via WhatsApp successfully!', 'success');
-        return result;
-        
-    } catch (error) {
-        console.error('Server WhatsApp sharing failed:', error);
-        showToast('Server sharing failed, using client-side method', 'warning');
-        // Fallback to client-side sharing
-        throw error;
-    } finally {
-        hideYinYangLoader();
-    }
-}
-
-/*// ====================================
-// 🧰 PDF generation helpers
-// ====================================*/
-async function generatePdfBlobFromNode(node) {
+async function generateEnhancedPdfBlob(node) {
     await ensureHtml2PdfLibrary();
 
-    const rawName = (readStore()?.patientName || (currentLanguage==='pt'?'Paciente':'Patient')).toString().trim();
-    const safeName = (rawName || (currentLanguage==='pt'?'Paciente':'Patient')).replace(/[^a-zA-Z0-9]/g,'_');
+    const rawName = (readStore()?.patientName || (currentLanguage === 'pt' ? 'Paciente' : 'Patient')).toString().trim();
+    const safeName = (rawName || (currentLanguage === 'pt' ? 'Paciente' : 'Patient')).replace(/[^a-zA-Z0-9]/g, '_');
     const title = t('titles.form');
-    const filename = `${safeName}_${title}_${new Date().toISOString().slice(0,10)}.pdf`;
-
-    const width  = Math.max(node.scrollWidth, 794);
-    const height = Math.max(node.scrollHeight, 1123);
+    const filename = `${safeName}_${title}_${new Date().toISOString().slice(0, 10)}.pdf`;
 
     const blob = await window.html2pdf().set({
-        margin:[14,14,14,14],
+        margin: [15, 15, 15, 15],
         filename,
-        image:{ type:'jpeg', quality:0.98 },
-        html2canvas:{
-            scale: isMobileLike() ? 2.0 : 2.4,
-            useCORS:true,
-            allowTaint:false,
-            backgroundColor:'#ffffff',
-            windowWidth: width,
-            windowHeight: height,
-            scrollX:0, scrollY:0,
-            letterRendering:true,
-            logging:false,
-            removeContainer:true,
-            onclone:(clonedDoc)=>{
-                try{
-                    const s = clonedDoc.createElement('style');
-                    s.id = 'pdf-pseudo-reset';
-                    s.textContent = '*::before,*::after{content:"" !important} *{box-shadow:none !important;filter:none !important;}';
-                    clonedDoc.head.appendChild(s);
-                    clonedDoc.querySelectorAll('i[class*="fa-"], i.fa, i.fas, i.far, i.fab').forEach(el => el.remove());
-                }catch{}
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            logging: false,
+            removeContainer: true,
+            onclone: (clonedDoc) => {
+                try {
+                    // Ensure all fonts and styles are loaded
+                    const style = clonedDoc.createElement('style');
+                    style.textContent = `
+                        * { 
+                            -webkit-print-color-adjust: exact !important; 
+                            print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                        }
+                    `;
+                    clonedDoc.head.appendChild(style);
+                } catch (e) {}
             }
         },
-        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait', compress:true },
-        pagebreak:{ mode:['css','legacy'], before:'.section', avoid:'.entry, .pitem, .table-grid tr, .table-grid td' }
+        jsPDF: {
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'portrait',
+            compress: true,
+            hotfixes: ['px_scaling']
+        },
+        pagebreak: {
+            mode: ['css', 'legacy'],
+            before: '.data-section',
+            avoid: '.patient-section, .data-item, .section-header'
+        }
     }).from(node).output('blob');
 
     return { filename, blob };
 }
 
-async function openOrSharePdfBlob(blob, filename) {
-    // Desktop → download. Mobile → try share, else open + download.
-    try {
-        const file = new File([blob], filename, { type: 'application/pdf' });
-        if (isMobileLike() && navigator.canShare && navigator.canShare({ files:[file] })) {
-            await navigator.share({
-                files:[file],
-                title: filename,
-                text: currentLanguage==='pt' ? 'PDF gerado.' : 'PDF generated.'
-            });
-            return;
-        }
-    } catch {}
-
-    await triggerDownloadBlob(filename, blob);
-
-    // Also open a viewer tab if popups aren’t blocked (helps printing on phones without share)
-    try {
-        const url = URL.createObjectURL(blob);
-        const win = window.open(url, '_blank');
-        setTimeout(()=>URL.revokeObjectURL(url), 30000);
-        if (!win) { /* popup blocked — download already triggered above */ }
-    } catch {}
-}
-
-async function triggerDownloadBlob(filename, blob) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 30000);
-}
-
 /*// ====================================
-// 🎯 PREVIEW MODAL SYSTEM (keeps your style, closes ONLY on "X")
+// 🎯 UPDATE THE PREVIEW SYSTEM WITH ENHANCED PDF
 // ====================================*/
-let currentExportData = null;
-let currentLogoSrc = null;
-let _previewCleanup = null;
-
-async function showPreviewModal(exportData, logoSrc) {
+async function showEnhancedPreviewModal(exportData, logoSrc) {
     currentExportData = exportData;
     currentLogoSrc = logoSrc;
 
@@ -2748,7 +2839,9 @@ async function showPreviewModal(exportData, logoSrc) {
     document.body.style.overflow = 'hidden';
 
     const iframe = document.getElementById('preview-iframe');
-    const docHTML = buildDocHTML(exportData, logoSrc);
+    
+    // Use enhanced HTML for preview
+    const docHTML = buildEnhancedDocHTML(exportData, logoSrc);
 
     iframe.onload = function () {
         try {
@@ -2761,7 +2854,7 @@ async function showPreviewModal(exportData, logoSrc) {
     };
     iframe.srcdoc = docHTML;
 
-    // Handlers — NOTE: only the "X" closes the modal now (Edit will close explicitly)
+    // Handlers - NOTE: only the "X" closes the modal now (Edit will close explicitly)
     const onCloseClick = () => closePreviewModal();
 
     const withBusy = async (btn, fn) => {
@@ -2776,44 +2869,21 @@ async function showPreviewModal(exportData, logoSrc) {
     };
 
     const onPdfClick = async (e) => {
-        await withBusy(e.currentTarget, async () => {
-            // Try server generation first, fallback to client
-            try {
-                await generatePdfOnServer(currentExportData, currentLogoSrc);
-            } catch {
-                await savePdfUnified(currentExportData, currentLogoSrc);
-            }
-        });
+        await withBusy(e.currentTarget, async () =>
+            generateEnhancedPdf(currentExportData, currentLogoSrc)
+        );
     };
 
     const onPrintClick = async (e) => {
         await withBusy(e.currentTarget, async () =>
-            (printDocumentUnified?.(currentExportData, currentLogoSrc) || printDocumentPaged?.(currentExportData, currentLogoSrc))
+            printDocumentUnified?.(currentExportData, currentLogoSrc)
         );
     };
 
     const onWhatsClick = async (e) => {
-        await withBusy(e.currentTarget, async () => {
-            const phoneNumber = prompt('Enter patient WhatsApp number (with country code):');
-            if (!phoneNumber) return;
-            
-            // Generate PDF first
-            let pdfBlob;
-            try {
-                pdfBlob = await generatePdfOnServer(currentExportData, currentLogoSrc);
-            } catch {
-                const result = await renderDocInIframe(currentExportData, currentLogoSrc);
-                const generated = await generatePdfBlobFromNode(result.node);
-                pdfBlob = generated.blob;
-            }
-            
-            // Try server sharing, fallback to client
-            try {
-                await shareViaWhatsAppServer(pdfBlob, phoneNumber);
-            } catch {
-                await sharePdfToWhatsApp(currentExportData, currentLogoSrc);
-            }
-        });
+        await withBusy(e.currentTarget, async () =>
+            sharePdfToWhatsApp?.(currentExportData, currentLogoSrc)
+        );
     };
 
     // "Edit" now returns to the form: close modal, focus a good field, and highlight briefly
@@ -2879,9 +2949,6 @@ async function showPreviewModal(exportData, logoSrc) {
     modal.querySelector('#preview-print-btn').addEventListener('click', onPrintClick);
     modal.querySelector('#preview-whatsapp-btn').addEventListener('click', onWhatsClick);
 
-    // DO NOT close on backdrop click or ESC anymore
-    // (No backdrop or keydown listeners registered)
-
     modal.style.display = 'block';
 
     // Move focus to close button for accessibility
@@ -2899,203 +2966,66 @@ async function showPreviewModal(exportData, logoSrc) {
     };
 }
 
-function closePreviewModal() {
-    const modal = document.getElementById('golden-preview-modal');
-    if (!modal) return;
-    modal.style.display = 'none';
-    try { _previewCleanup?.(); } catch {}
-    setTimeout(() => { try { modal.remove(); } catch {} }, 300);
-}
-
-/* Cosmetic styles injected inside the preview iframe */
-function getChineseCulturalStyles() {
-    return `
-        :root{--jade:#0f766e;--gold:#d4af37;--cinnabar:#bf1e2e;--ink:#1f2937;--line:rgba(0,0,0,.1)}
-        .cultural-border{position:fixed;pointer-events:none;z-index:1;width:100%}
-        .top-cultural-border{top:0;left:0;right:0;height:18px;background:linear-gradient(90deg,var(--jade),var(--gold),var(--jade));opacity:.6;z-index:2}
-        .bottom-cultural-border{bottom:0;left:0;right:0;height:18px;background:linear-gradient(90deg,var(--jade),var(--gold),var(--jade));opacity:.6;z-index:2}
-        .cultural-corner{position:fixed;width:26px;height:26px;border:3px solid var(--jade);opacity:.45;background:transparent}
-        .corner-tl{top:22px;left:10px;border-right-color:transparent;border-bottom-color:transparent;border-radius:8px 0 0 0}
-        .corner-tr{top:22px;right:10px;border-left-color:transparent;border-bottom-color:transparent;border-radius:0 8px 0 0}
-        .corner-bl{bottom:22px;left:10px;border-right-color:transparent;border-top-color:transparent;border-radius:0 0 0 8px}
-        .corner-br{bottom:22px;right:10px;border-left-color:transparent;border-top-color:transparent;border-radius:0 0 8px 0}
-        .chinese-pattern{position:absolute;inset:0;opacity:.1;pointer-events:none;z-index:0}
-        .chinese-seal{position:fixed;bottom:26px;right:26px;width:70px;height:70px;border:2px solid var(--cinnabar);border-radius:5px;display:flex;align-items:center;justify-content:center;transform:rotate(5deg);background:rgba(191,30,46,.05);color:var(--cinnabar);font-family:"Noto Serif SC",serif;font-weight:900;font-size:12px;text-align:center;padding:4px;opacity:.8;z-index:2}
-        .preview-mode .page{box-shadow:0 0 24px rgba(0,0,0,.15);margin:20px auto}
-    `;
-}
-
-function addCulturalElements(doc) {
-    const body = doc.body;
-    body.classList.add('preview-mode');
-    const pattern = doc.createElement('div');
-    pattern.className = 'chinese-pattern';
-    body.appendChild(pattern);
-    const topBorder = doc.createElement('div');
-    topBorder.className = 'cultural-border top-cultural-border';
-    body.appendChild(topBorder);
-    const bottomBorder = doc.createElement('div');
-    bottomBorder.className = 'cultural-border bottom-cultural-border';
-    body.appendChild(bottomBorder);
-    ['tl', 'tr', 'bl', 'br'].forEach(c => {
-        const el = doc.createElement('div');
-        el.className = `cultural-corner corner-${c}`;
-        body.appendChild(el);
-    });
-    const seal = doc.createElement('div');
-    seal.className = 'chinese-seal';
-    seal.textContent = '诊断证明\nMedical Record';
-    body.appendChild(seal);
-}
-
-/*// ------------------------------------
-// 🖼️ Host-page styles for the preview modal
-// ------------------------------------*/
-const previewModalStyles = `
-    :root { 
-        --jade: #0f766e; 
-        --jade-600: #0d5e58; 
-        --gold: #d4af37; 
-        --ink: #1f2937; 
-        --line:rgba(0,0,0,.1); 
-    }
-    #golden-preview-modal{
-        display:none;
-        position:fixed;
-        z-index:10000;
-        inset:0;
-        overflow:auto;
-        background:rgba(138, 127, 127, 0.51);
-        font-family:Inter,system-ui,Arial,sans-serif;
-        backdrop-filter: blur(6px);
-    }
-    .preview-modal-content{
-        position:relative;
-        background: #fefefe;
-        margin:2% auto;
-        width:95%;
-        height:90%;
-        border-radius:12px;
-        box-shadow:0 5px 30px rgba(0,0,0,.3);
-        display:flex;
-        flex-direction:column;
-        overflow:hidden;
-        border:1px solid var(--gold)
-    }
-    .preview-modal-header{
-        padding:15px 20px;
-        background:linear-gradient(135deg,var(--jade),var(--jade-600));
-        color: #fff;
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        border-bottom:2px solid var(--gold)
-    }
-    .preview-modal-header h3{ 
-        margin:0;
-        font-family:"Noto Serif SC",serif;font-weight:700;
-        font-size:1.2rem
-    }
-    .preview-close{
-        color: #fff;
-        font-size:28px;
-        font-weight:400;
-        cursor:pointer;
-    }
-    .preview-close:hover{
-        opacity:1
-    }
-    .preview-modal-body{
-        flex:1;overflow:hidden;
-        background: #f0f2f5
-    }
-    .preview-modal-footer{
-        padding:15px 20px;
-        background:linear-gradient(135deg, #f6f7f9, #e8eaed);
-        display:flex;
-        justify-content:flex-end;
-        gap:12px;
-        border-top:1px solid var(--line)
-    }
-    .preview-btn{
-        padding:10px 20px;
-        border:none;
-        border-radius:6px;
-        cursor:pointer;
-        font-weight:600;
-        font-size:.95rem;
-        transition:.2s all;
-        display:inline-flex;
-        align-items:center;
-        gap:8px
-    }
-    .preview-btn-edit{
-        background: #e5e7eb;
-        color:var(--ink)
-    }
-    .preview-btn-edit:hover{
-        background: #d1d5db
-    }
-    .preview-btn-primary{
-        background:linear-gradient(135deg,var(--jade),var(--jade-600));
-        color: #fff
-    }
-    .preview-btn-primary:hover{
-        background:linear-gradient(135deg,var(--jade-600),#0a554e);
-        box-shadow:0 2px 8px rgba(15,118,110,.4)
-    }
-    .preview-btn-success{
-        background:linear-gradient(135deg,#22c55e,#16a34a);
-        color: #fff
-    }
-    .preview-btn-success:hover{
-        background:linear-gradient(135deg,#16a34a,#15803d);
-        box-shadow:0 2px 8px rgba(34,197,94,.4)
-    }
-    @media (max-width:768px){ 
-        .preview-modal-content{
-            width:98%;
-            height:95%;
-            margin:1% auto
-        } 
-        .preview-modal-footer{
-            flex-wrap:wrap
-        } 
-        .preview-btn{
-            flex:1;
-            min-width:120px;
-            justify-content:center
-        } 
-    }
-`;
-(function () {
-    const s = document.createElement('style');
-    s.textContent = previewModalStyles;
-    document.head.appendChild(s);
-})();
-
-/*// ------------------------------------
-// 🔄 Unified entry: collect → open preview (keeps your original flow)
-// ------------------------------------*/
-async function prepareExport(actionType) {
+/*// ====================================
+// 🔄 ENHANCED EXPORT ENTRY POINT
+// ====================================*/
+async function prepareEnhancedExport(actionType) {
     const btnMap = { preview: '#previewButton', pdf: '#savePDF', print: '#printButton', whatsapp: '#whatsappButton' };
     const btnSel = btnMap[actionType] || '#previewButton';
 
     disableButton?.(btnSel);
     showYinYangLoader(t('toasts.generatingPreview') || t('toasts.generatingPDF'), btnSel);
+    
     try {
         saveFormData(document, true);
         const exportData = collectFilledData() || {};
-        if (!exportData.sections?.length) { showToast(t('errors.noDataToExport'), 'warning'); return; }
+        
+        if (!exportData.sections?.length) {
+            showToast(t('errors.noDataToExport'), 'warning');
+            return;
+        }
+        
         let logoSrc = await chooseWorkingLogoSrc();
         try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
-        await showPreviewModal(exportData, logoSrc);
+        
+        // Use enhanced preview modal
+        await showEnhancedPreviewModal(exportData, logoSrc);
+        
     } catch (e) {
-        console.error('prepareExport error:', e);
+        console.error('Enhanced export error:', e);
         showToast(t('errors.exportFailed') || (currentLanguage === 'pt' ? 'Falha na exportação.' : 'Export failed.'), 'error');
     } finally {
-        hideYinYangLoader(); enableButton?.(btnSel);
+        hideYinYangLoader();
+        enableButton?.(btnSel);
     }
+}
+
+/*// ====================================
+// 🎉 FINAL INTEGRATION - OVERRIDE EXISTING FUNCTIONS
+// ====================================*/
+// Add this to override the existing functions with enhanced versions
+function initializeEnhancedPDF() {
+    // Override the default PDF generation functions
+    if (typeof window !== 'undefined') {
+        // Override main export functions
+        window.savePdfUnified = generateEnhancedPdf;
+        window.saveToPDF = generateEnhancedPdf;
+        window.prepareExport = prepareEnhancedExport;
+        
+        // Keep backward compatibility
+        window.GoldenDiagnosis = window.GoldenDiagnosis || {};
+        window.GoldenDiagnosis.generateEnhancedPDF = generateEnhancedPdf;
+        window.GoldenDiagnosis.buildEnhancedDocHTML = buildEnhancedDocHTML;
+        
+        console.log('Enhanced PDF system initialized');
+    }
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeEnhancedPDF);
+} else {
+    initializeEnhancedPDF();
 }
 
 /*// ====================================
