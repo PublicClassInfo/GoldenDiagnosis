@@ -321,7 +321,11 @@ const I18N = {
             title: 'Pré-visualização do Documento',
             edit: 'Editar',
             savePdf: 'Salvar PDF',
-            print: 'Imprimir'
+            print: 'Imprimir',
+            styleName: 'Estilo',
+            minStyle: 'Simples',
+            claStyle: 'Clássico',
+            modStyle: 'Moderno'
         },        
         purpose: {
             identify: {
@@ -649,7 +653,11 @@ const I18N = {
             title: 'Document Preview',
             edit: 'Edit',
             savePdf: 'Save PDF',
-            print: 'Print'
+            print: 'Print',
+            styleName: 'Style',
+            minStyle: 'Minimal',
+            claStyle: 'Classic',
+            modStyle: 'Modern'
         },
         purpose: {
             identify: {
@@ -2016,19 +2024,116 @@ async function toDataURL(url) {
 
 /*// ====================================
 // 🧱 PDF/Print HTML (shared) — single source of truth (Preview → Print/PDF/WhatsApp)
-//  — Keeps your original print CSS as-is
+//  — THREE THEME SYSTEM: Modern, Classic, Minimal
 //  — Desktop PRINT → Paged.js (native dialog, perfect pagination)
 //  — Mobile PRINT → generate PDF blob (share/open → print from viewer)
 //  — PDF button → generate/download (desktop & phone)
 //  — WhatsApp button → attach PDF via Web Share (fallback: download + wa.me)
 // ====================================*/
-function getSharedStyles() {
-    /* NOTE: requested to keep the print style “beautiful and perfect”.
-       The block below is preserved verbatim (minor whitespace only). */
-    return `
-        <style>
-            @page { size: A4; margin: 14mm; }
 
+/*// ====================================
+// 🎨 THREE THEME SYSTEM
+// ====================================*/
+
+const THEMES = {
+    MODERN: 'modern',      // Your existing beautiful style
+    CLASSIC: 'classic',    // PDF-inspired professional style  
+    MINIMAL: 'minimal'     // Clean, focused style
+};
+
+let currentTheme = THEMES.MODERN;
+
+function getThemeStyles(theme) {
+    const baseStyles = `
+        @page { 
+            size: A4; 
+            margin: 14mm; 
+            @top-left { content: none; }
+            @top-center { content: none; }
+            @top-right { content: none; }
+            @bottom-left { content: none; }
+            @bottom-center { content: none; }
+            @bottom-right { content: none; }
+            marks: none;
+        }
+
+        *{ box-sizing:border-box; margin:0; padding:0; }
+        html,body{
+            background:#fff;
+            color:var(--ink);
+            font:14px/1.6 Inter, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+        }
+
+        img{ max-width:100%; height:auto; display:block; }
+
+        .page{
+            width:794px;
+            min-height:1123px;
+            margin:0 auto;
+            padding:18px;
+            position:relative;
+            background:#fff;
+        }
+
+        @media print{
+            html,body{ 
+                -webkit-print-color-adjust:exact; 
+                print-color-adjust:exact; 
+                background:#fff; 
+                margin:0 !important;
+                padding:0 !important;
+            }
+            .page{
+                width:calc(210mm - 28mm) !important; 
+                min-height:auto !important;
+                margin:0 auto !important; 
+                padding:0 !important; 
+                box-shadow:none !important;
+                page-break-after: always;
+            }
+            .no-print{ display:none !important; }
+            @page :footer { display: none !important; }
+            @page :header { display: none !important; }
+            *{
+                text-shadow:none !important;
+                -webkit-text-stroke:0 !important;
+                box-shadow:none !important;
+                filter:none !important;
+            }
+        }
+
+        .patient-info-grid{ 
+            display:grid; 
+            gap:12px; 
+            grid-template-columns:repeat(auto-fit, minmax(260px,1fr));
+            margin:18px 0;
+        }
+
+        .section-grid{ 
+            display:grid; 
+            gap:12px; 
+            grid-template-columns:repeat(auto-fit, minmax(300px,1fr));
+        }
+
+        .table-grid{ width:100%; border-collapse:collapse; table-layout:fixed; }
+        .table-grid th, .table-grid td{
+            padding:8px 10px; border:1px solid rgba(0,0,0,.1); vertical-align:top; 
+            word-break:break-word; overflow-wrap:anywhere;
+        }
+
+        footer{
+            margin-top:24px; padding:14px; text-align:center; 
+            border-top:3px solid var(--gold);
+        }
+
+        @media screen and (max-width:768px){
+            .page{ width:100%; padding:12px; }
+            .patient-info-grid, .section-grid{ grid-template-columns:1fr; }
+        }
+    `;
+
+    const themeStyles = {
+        [THEMES.MODERN]: `
             :root {
                 --jade:#0f766e;
                 --jade-600:#0d5e58;
@@ -2041,49 +2146,7 @@ function getSharedStyles() {
                 --line:rgba(0,0,0,.1);
             }
 
-            *{ box-sizing:border-box; margin:0; padding:0; }
-            html,body{
-                background:#fff;
-                color:var(--ink);
-                font:14px/1.6 Inter, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-            }
-
-            img{ max-width:100%; height:auto; display:block; }
-
-            .page{
-                width:794px;                  /* A4 width @96dpi */
-                min-height:1123px;            /* A4 height @96dpi */
-                margin:0 auto;
-                padding:18px;
-                position:relative;
-                background:#fff;
-                box-shadow:0 0 10px rgba(0,0,0,.1);
-            }
-
-            body.pdf .page::before{ content:"" !important; display:none !important; }
-            body.pdf footer{
-                background:#fff !important;
-                border-top:2px solid var(--gold) !important;
-            }
-
-            @media print{
-                html,body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; background:#fff; }
-                /* Real printable width: 210mm - 2×14mm margins */
-                .page{
-                    width:calc(210mm - 28mm) !important; min-height:auto !important;
-                    margin:0 auto !important; padding:0 !important; box-shadow:none !important;
-                }
-                .no-print{ display:none !important; }
-
-                /* SPOOLER STABILITY: keep print layout simple */
-                *{
-                    text-shadow:none !important;
-                    -webkit-text-stroke:0 !important;
-                    box-shadow:none !important;
-                    filter:none !important;
-                }
-                html,body{ width:auto !important; height:auto !important; }
-            }
+            .page{ box-shadow:0 0 10px rgba(0,0,0,.1); }
 
             .masthead{
                 position:relative; overflow:hidden; margin-bottom:22px; padding:20px;
@@ -2114,16 +2177,16 @@ function getSharedStyles() {
                 font-family:"Noto Serif SC",serif; color:var(--jade-600); font-size:18px; font-weight:800;
                 margin:0 0 12px; padding-bottom:8px; border-bottom:2px solid rgba(212,175,55,.35);
             }
-            .pgrid{ display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); }
-            .pitem{
+
+            .info-item{
                 background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; position:relative;
                 break-inside:avoid; page-break-inside:avoid;
             }
-            .pitem::before{
+            .info-item::before{
                 content:""; position:absolute; left:0; top:0; bottom:0; width:4px;
                 background:linear-gradient(180deg, var(--jade), var(--gold)); border-radius:10px 0 0 10px;
             }
-            .pitem strong{ display:block; color:var(--jade-600); font-size:11px; letter-spacing:.6px; text-transform:uppercase; margin-bottom:6px; }
+            .info-item strong{ display:block; color:var(--jade-600); font-size:11px; letter-spacing:.6px; text-transform:uppercase; margin-bottom:6px; }
 
             .section{
                 position:relative; overflow:hidden; background:#fff; border:1px solid var(--line); border-radius:14px;
@@ -2135,7 +2198,6 @@ function getSharedStyles() {
                 margin:0 0 14px; padding-bottom:8px; border-bottom:1.5px dashed rgba(15,118,110,.25);
             }
 
-            .grid{ display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); }
             .entry{
                 background:linear-gradient(180deg, #fff, var(--smoke)); border:1px solid var(--line); border-radius:12px;
                 padding:12px 12px 12px 16px; position:relative; break-inside:avoid; page-break-inside:avoid;
@@ -2147,26 +2209,440 @@ function getSharedStyles() {
             .entry strong{ display:block; font-size:.8rem; letter-spacing:.8px; text-transform:uppercase; color:var(--jade-600); margin-bottom:6px; }
             .entry .val{ font-size:1rem; color:var(--ink); white-space:pre-line; overflow-wrap:anywhere; }
 
-            .table-grid{ width:100%; border-collapse:collapse; table-layout:fixed; }
-            .table-grid th, .table-grid td{
-                padding:8px 10px; border:1px solid rgba(0,0,0,.1); vertical-align:top; word-break:break-word; overflow-wrap:anywhere;
-            }
-
             footer{
-                margin-top:24px; padding:14px; text-align:center; color:var(--ink-2); border-top:3px solid var(--gold);
                 background:linear-gradient(135deg, rgba(15,118,110,.04), rgba(212,175,55,.04)); border-radius:12px;
             }
+        `,
 
-            /* Responsive */
-            @media screen and (max-width:768px){
-                .page{ width:100%; padding:12px; }
-                .masthead{ grid-template-columns:80px 1fr; padding:15px; }
-                .logo{ height:80px; width:80px; }
-                .title h1{ font-size:22px; }
-                .title h2{ font-size:16px; }
-                .pgrid, .grid{ grid-template-columns:1fr; }
-                .pitem, .entry{ padding:10px; }
+        [THEMES.CLASSIC]: `
+            /* ====================================
+            // 🏥 CLASSIC — Ficha de Anamnese (PDF-accurate)
+            // - Centered seal logo above titles
+            // - Uppercase titles, subdued gray subtitle
+            // - Table-first layout with ruled rows
+            // - Two-column "QUEIXA PRINCIPAL / DOR" block
+            // ==================================== */
+
+            :root{
+                --primary:#2c3e50;       /* header rule & labels */
+                --header-bg:#f2f4f5;     /* table header cells */
+                --border:#bfc7cc;        /* table borders */
+                --text:#2c3e50;          /* body text */
+                --text-light:#7f8c8d;    /* notes */
+                --paper:#ffffff;
             }
+
+            .page{
+                background:var(--paper);
+                font-family:"Times New Roman","Liberation Serif",serif;
+                line-height:1.4;
+                padding:20px;
+            }
+
+            /* ===== HEADER (exact PDF positioning) ===== */
+            .masthead{
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                justify-content:flex-start;
+                gap:10px;
+                text-align:center;
+                margin:0 0 18px 0;
+                padding:0 0 14px 0;
+                border-bottom:2px solid var(--primary);
+            }
+            .masthead .logo{
+                display:block;
+                width:110px; height:auto;
+                object-fit:contain;
+                margin:6px auto 6px;
+                border:none; border-radius:0;
+                padding:0; background:transparent;
+            }
+            .masthead .title h1{
+                margin:4px 0 2px;
+                font-size:20px;
+                font-weight:700;
+                color:var(--primary);
+                text-transform:uppercase;
+                letter-spacing:1.2px;
+            }
+            .masthead .title h2{
+                margin:0 0 4px;
+                font-size:14px;
+                font-weight:700;
+                color:#7b8794;
+                text-transform:uppercase;
+                letter-spacing:1px;
+            }
+            .masthead .gen{
+                font-size:11px;
+                color:var(--text-light);
+                font-style:italic;
+            }
+
+            /* ===== PATIENT (ruled table layout) ===== */
+            .patient{
+                background:var(--paper);
+                margin:14px 0 16px;
+                page-break-inside:avoid;
+                border:1px solid var(--border);
+            }
+            .patient h3{
+                background:var(--header-bg);
+                color:var(--primary);
+                font-size:14px;
+                font-weight:700;
+                margin:0;
+                padding:9px 12px;
+                border-bottom:1px solid var(--border);
+                text-transform:uppercase;
+                letter-spacing:.6px;
+            }
+            .patient-info-grid{
+                display:block;
+                margin:0;
+            }
+            .info-item{
+                display:flex;
+                align-items:center;
+                gap:0;
+                padding:7px 12px;
+                border-bottom:1px solid var(--border);
+                min-height:32px;
+                background:var(--paper);
+                margin:0;
+            }
+            .info-item:last-child{
+                border-bottom:none;
+            }
+            .info-item strong{
+                flex:0 0 240px;
+                font-weight:700;
+                color:var(--primary);
+                font-size:12px;
+                text-transform:uppercase;
+                letter-spacing:.4px;
+            }
+            .info-item .val{
+                flex:1;
+                font-size:13px;
+                color:var(--text);
+                padding-left:12px;
+                margin-left:10px;
+                border-left:1px solid var(--border);
+                white-space:pre-line;
+            }
+
+            /* ===== COMPLAINTS (two-column: Queixa / Dor) ===== */
+            .complaint-section{
+                border:1px solid var(--border);
+                margin:16px 0;
+                page-break-inside:avoid;
+            }
+            .complaint-section h3{
+                background:var(--header-bg);
+                color:var(--primary);
+                font-size:14px;
+                font-weight:700;
+                margin:0;
+                padding:9px 12px;
+                border-bottom:1px solid var(--border);
+                text-transform:uppercase;
+            }
+            .complaint-grid{
+                display:grid;
+                grid-template-columns:1fr 1fr;
+                gap:0;
+            }
+            .complaint-column{
+                padding:0;
+            }
+            .complaint-column:first-child{
+                border-right:1px solid var(--border);
+            }
+            .complaint-item{
+                display:flex;
+                align-items:flex-start;
+                padding:7px 12px;
+                border-bottom:1px solid var(--border);
+                min-height:32px;
+                background:var(--paper);
+            }
+            .complaint-item:last-child{
+                border-bottom:none;
+            }
+            .complaint-item strong{
+                flex:0 0 185px;
+                font-weight:700;
+                color:var(--primary);
+                font-size:12px;
+                text-transform:uppercase;
+                letter-spacing:.4px;
+                padding-right:8px;
+            }
+            .complaint-item .val{
+                flex:1;
+                font-size:13px;
+                color:var(--text);
+            }
+
+            /* ===== SECTIONS (header bar + ruled rows) ===== */
+            .section{
+                background:var(--paper);
+                border:1px solid var(--border);
+                margin:16px 0;
+                page-break-inside:avoid;
+            }
+            .section h3{
+                background:var(--header-bg);
+                color:var(--primary);
+                font-size:14px;
+                font-weight:700;
+                margin:0;
+                padding:9px 12px;
+                border-bottom:1px solid var(--border);
+                text-transform:uppercase;
+            }
+            .section-grid{
+                display:block;
+                margin:0;
+            }
+            .entry{
+                display:flex;
+                align-items:flex-start;
+                padding:7px 12px;
+                border-bottom:1px solid var(--border);
+                min-height:32px;
+                background:var(--paper);
+                break-inside:avoid;
+                page-break-inside:avoid;
+            }
+            .entry:last-child{
+                border-bottom:none;
+            }
+            .entry strong{
+                flex:0 0 260px;
+                font-weight:700;
+                color:var(--primary);
+                font-size:12px;
+                text-transform:uppercase;
+                letter-spacing:.4px;
+                padding-right:12px;
+            }
+            .entry .val{
+                flex:1;
+                font-size:13px;
+                color:var(--text);
+                white-space:pre-line;
+            }
+
+            /* ===== Subtypes/checkbox notes (PDF shows italics) ===== */
+            .entry.checkbox-item{
+                align-items:center;
+            }
+            .entry.checkbox-item .val{
+                font-style:italic;
+                color:var(--text-light);
+            }
+
+            /* ===== Observations (textarea-like) ===== */
+            .observations-item{
+                display:block;
+                padding:9px 12px;
+            }
+            .observations-item .val{
+                border:1px solid var(--border);
+                background:#fafafa;
+                color:var(--text);
+                min-height:60px;
+                padding:8px;
+                font-style:italic;
+            }
+
+            /* ===== FOOTER (professional tone) ===== */
+            footer{
+                background:var(--header-bg);
+                border-top:2px solid var(--primary);
+                font-size:11px;
+                color:var(--text-light);
+                text-align:center;
+                padding:12px;
+                margin-top:18px;
+                font-style:italic;
+            }
+
+            /* ===== PRINT (avoid orphaned rows) ===== */
+            @media print{
+                .page{
+                    padding:14px;
+                }
+                .patient,
+                .section,
+                .complaint-section{
+                    break-inside:avoid;
+                    page-break-inside:avoid;
+                    margin:12px 0;
+                }
+                .entry,
+                .info-item,
+                .complaint-item{
+                    break-inside:avoid;
+                    page-break-inside:avoid;
+                }
+                .info-item strong,
+                .complaint-item strong,
+                .entry strong{
+                    font-size:11px;
+                }
+                .info-item .val,
+                .complaint-item .val,
+                .entry .val{
+                    font-size:12px;
+                }
+            }
+        `,
+
+        [THEMES.MINIMAL]: `
+            :root {
+                --jade:#0f766e;
+                --gold:#d4af37;
+                --cinnabar:#bf1e2e;
+                --ink:#374151;
+                --paper:#ffffff;
+                --light-bg:#f8fafc;
+                --border:#e5e7eb;
+            }
+
+            .page{ 
+                background:var(--paper);
+                box-shadow:0 1px 3px rgba(0,0,0,.1);
+            }
+
+            .masthead{
+                background:var(--light-bg);
+                border-bottom:2px solid var(--jade);
+                padding:24px 20px;
+                margin-bottom:24px;
+                display:flex;
+                align-items:center;
+                gap:20px;
+            }
+            .logo{ 
+                height:80px; width:80px; 
+                border:2px solid var(--jade);
+                border-radius:8px;
+                padding:3px;
+                background:var(--paper);
+            }
+            .title h1{ 
+                font-family:Inter, system-ui, sans-serif;
+                font-size:24px; 
+                font-weight:700; 
+                color:var(--jade); 
+                margin:0 0 4px;
+            }
+            .title h2{ 
+                font-family:Inter, system-ui, sans-serif;
+                font-size:16px; 
+                font-weight:600; 
+                color:var(--cinnabar); 
+                margin:0 0 8px;
+            }
+            .gen{
+                display:inline-block; 
+                font-weight:500; 
+                font-size:12px; 
+                color:var(--ink); 
+                padding:4px 8px;
+                background:var(--paper);
+                border-radius:4px;
+                border:1px solid var(--border);
+            }
+
+            .patient{
+                background:var(--light-bg);
+                border-left:4px solid var(--jade);
+                padding:20px;
+                margin:20px 0;
+            }
+            .patient h3{
+                font-family:Inter, system-ui, sans-serif;
+                color:var(--jade); 
+                font-size:16px; 
+                font-weight:700;
+                margin:0 0 16px;
+                text-transform:uppercase;
+                letter-spacing:0.5px;
+            }
+
+            .info-item{
+                background:var(--paper);
+                border:1px solid var(--border);
+                padding:12px 14px;
+                border-radius:6px;
+            }
+            .info-item strong{ 
+                display:block; 
+                color:var(--jade); 
+                font-size:11px; 
+                letter-spacing:.5px; 
+                text-transform:uppercase; 
+                margin-bottom:6px;
+                font-weight:600;
+            }
+
+            .section{
+                background:var(--paper);
+                border:1px solid var(--border);
+                border-radius:8px;
+                padding:20px;
+                margin:20px 0;
+            }
+            .section h3{
+                font-family:Inter, system-ui, sans-serif;
+                color:var(--jade); 
+                font-size:16px; 
+                font-weight:700;
+                margin:0 0 16px;
+                padding-bottom:8px;
+                border-bottom:2px solid var(--light-bg);
+                text-transform:uppercase;
+                letter-spacing:0.5px;
+            }
+
+            .entry{
+                background:var(--light-bg);
+                border:1px solid var(--border);
+                border-radius:6px;
+                padding:12px 14px;
+                margin-bottom:8px;
+            }
+            .entry strong{ 
+                display:block; 
+                font-size:.75rem; 
+                letter-spacing:.5px; 
+                text-transform:uppercase; 
+                color:var(--jade); 
+                margin-bottom:6px;
+                font-weight:600;
+            }
+            .entry .val{ font-size:0.95rem; color:var(--ink); line-height:1.5; }
+
+            footer{
+                background:var(--light-bg);
+                border-top:1px solid var(--border);
+                font-size:0.9rem;
+                color:var(--ink);
+                border-radius:6px;
+            }
+        `
+    };
+
+    return `
+        <style>
+            ${baseStyles}
+            ${themeStyles[theme] || themeStyles[THEMES.MODERN]}
         </style>
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;800&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -2174,7 +2650,7 @@ function getSharedStyles() {
 }
 
 /*// ====================================
-// 🧯 Print & PDF Fixes (no cropping, stable tables)
+// 🧯 Print & PDF Fixes (no cropping, stable tables, no headers/footers)
 // ====================================*/
 function injectPrintFixes() {
     if (document.getElementById('gd-print-fixes')) return;
@@ -2186,14 +2662,34 @@ function injectPrintFixes() {
         .table-grid thead { display:table-header-group !important; }
         .table-grid tbody { display:table-row-group !important; }
         .table-grid tr { break-inside:avoid !important; page-break-inside:avoid !important; }
+        
+        /* Remove browser print headers/footers */
+        @page { 
+            margin: 14mm !important; 
+            @top-left { content: none !important; }
+            @top-center { content: none !important; }
+            @top-right { content: none !important; }
+            @bottom-left { content: none !important; }
+            @bottom-center { content: none !important; }
+            @bottom-right { content: none !important; }
+        }
+        
+        @media print {
+            @page :footer { display: none !important; }
+            @page :header { display: none !important; }
+            
+            /* Ensure no margins for headers/footers */
+            body { margin: 0 !important; padding: 0 !important; }
+            .page { margin: 0 auto !important; }
+        }
     `;
     document.head.appendChild(s);
 }
 
 /*// ====================================
-// 📄 Compose A4 HTML (Preview = Print = PDF)
+// 📄 Compose A4 HTML (Preview = Print = PDF) WITH THEME SUPPORT
 // ====================================*/
-function buildDocHTML(exportData, logoSrc) {
+function buildDocHTML(exportData, logoSrc, theme = THEMES.MODERN) {
     const patientData = readStore() || {};
     const patientFields = [
         { key:'patientName', label:L('patientName') },
@@ -2214,9 +2710,9 @@ function buildDocHTML(exportData, logoSrc) {
     const patientHTML = patientFields.length ? `
         <section class="patient no-split" aria-label="${L('patientInfo')}">
             <h3>${L('patientInfo')}</h3>
-            <div class="pgrid">
+            <div class="patient-info-grid">
                 ${patientFields.map(f => `
-                    <div class="pitem">
+                    <div class="info-item">
                         <strong>${escapeHTML(String(f.label))}</strong>
                         <div class="val">${escapeHTML(String(f.value))}</div>
                     </div>
@@ -2230,7 +2726,7 @@ function buildDocHTML(exportData, logoSrc) {
         return `
             <section class="section">
                 <h3>${escapeHTML(String(sec.title))}</h3>
-                <div class="grid">
+                <div class="section-grid">
                     ${sec.entries.map(e => `
                         <div class="entry">
                             <strong>${escapeHTML(String(e.label))}</strong>
@@ -2255,7 +2751,7 @@ function buildDocHTML(exportData, logoSrc) {
             <meta name="viewport" content="width=device-width,initial-scale=1" />
             <meta name="color-scheme" content="light only" />
             <title>${t('titles.form')}</title>
-            ${getSharedStyles()}
+            ${getThemeStyles(theme)}
         </head>
         <body class="pdf">
             <main class="page">
@@ -2278,7 +2774,7 @@ function buildDocHTML(exportData, logoSrc) {
 }
 
 /*// ====================================
-// 🔧 Utilities (assets, device, iframe)
+// 🔧 Utilities (assets, device, iframe) WITH THEME SUPPORT
 // ====================================*/
 async function ensureHtml2PdfLibrary() {
     const already = typeof window.html2pdf === 'function' ||
@@ -2337,10 +2833,10 @@ function createHiddenIframe() {
     return iframe;
 }
 
-async function renderDocInIframe(exportData, logoSrc, { usePaged=false } = {}) {
+async function renderDocInIframe(exportData, logoSrc, { usePaged=false, theme=THEMES.MODERN } = {}) {
     const html = usePaged
-        ? buildDocHTMLForPaged(exportData, logoSrc)
-        : buildDocHTML(exportData, logoSrc);
+        ? buildDocHTMLForPaged(exportData, logoSrc, theme)
+        : buildDocHTML(exportData, logoSrc, theme);
 
     const iframe = createHiddenIframe();
 
@@ -2369,10 +2865,10 @@ async function renderDocInIframe(exportData, logoSrc, { usePaged=false } = {}) {
 }
 
 /*// ====================================
-// 🧭 Paged.js HTML wrapper (for desktop print)
+// 🧭 Paged.js HTML wrapper (for desktop print) WITH THEME SUPPORT
 // ====================================*/
-function buildDocHTMLForPaged(exportData, logoSrc) {
-    const base = buildDocHTML(exportData, logoSrc);
+function buildDocHTMLForPaged(exportData, logoSrc, theme = THEMES.MODERN) {
+    const base = buildDocHTML(exportData, logoSrc, theme);
     return base.replace(
         '</body>',
         `<script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>
@@ -2386,11 +2882,9 @@ function buildDocHTMLForPaged(exportData, logoSrc) {
 }
 
 /*// ====================================
-// 🖨️ Print: unified behavior
-//  — Desktop: Paged.js → native print dialog (exact preview look)
-//  — Phone: generate PDF blob → share/open → user prints from viewer
+// 🖨️ Print: unified behavior WITH THEME SUPPORT
 // ====================================*/
-async function printDocumentUnified(exportData=null, logoSrc=null) {
+async function printDocumentUnified(exportData=null, logoSrc=null, theme=THEMES.MODERN) {
     disableButton?.('#printButton');
     showYinYangLoader(t('toasts.generatingPDF'), '#printButton');
     injectPrintFixes();
@@ -2405,7 +2899,7 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
 
         if (isMobileLike()) {
             // Mobile: generate PDF -> open/share (consistent beauty) then user prints
-            const { node, iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
+            const { node, iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:false, theme });
             const { filename, blob } = await generatePdfBlobFromNode(node);
             await openOrSharePdfBlob(blob, filename);
             try { iframe.remove(); } catch {}
@@ -2414,7 +2908,7 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
         }
 
         // Desktop: Paged.js + native print dialog (closest to preview)
-        const { iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:true });
+        const { iframe } = await renderDocInIframe(exportData, logoSrc, { usePaged:true, theme });
         try { iframe.contentWindow.focus(); } catch {}
         try { iframe.contentWindow.print(); } catch {}
         setTimeout(() => { try { iframe.remove(); } catch {} }, 1500);
@@ -2429,9 +2923,9 @@ async function printDocumentUnified(exportData=null, logoSrc=null) {
 }
 
 /*// ====================================
-// 💾 PDF: generate & download/share (desktop + phone)
+// 💾 PDF: generate & download/share (desktop + phone) WITH THEME SUPPORT
 // ====================================*/
-async function savePdfUnified(exportData=null, logoSrc=null) {
+async function savePdfUnified(exportData=null, logoSrc=null, theme=THEMES.MODERN) {
     disableButton?.('#savePDF');
     showYinYangLoader(t('toasts.generatingPDF'), '#savePDF');
     injectPrintFixes();
@@ -2445,7 +2939,7 @@ async function savePdfUnified(exportData=null, logoSrc=null) {
             try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
         }
 
-        const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
+        const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false, theme });
         iframe = result.iframe;
         const { filename, blob } = await generatePdfBlobFromNode(result.node);
         await openOrSharePdfBlob(blob, filename);
@@ -2461,9 +2955,9 @@ async function savePdfUnified(exportData=null, logoSrc=null) {
 }
 
 /*// ====================================
-// 📎 WhatsApp: attach PDF (Web Share → fallback download + wa.me)
+// 📎 WhatsApp: attach PDF (Web Share → fallback download + wa.me) WITH THEME SUPPORT
 // ====================================*/
-async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
+async function sharePdfToWhatsApp(exportData=null, logoSrc=null, theme=THEMES.MODERN) {
     disableButton?.('#whatsappButton');
     showYinYangLoader(t('toasts.generatingPDF'), '#whatsappButton');
     injectPrintFixes();
@@ -2477,7 +2971,7 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
             try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
         }
 
-        const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false });
+        const result = await renderDocInIframe(exportData, logoSrc, { usePaged:false, theme });
         iframe = result.iframe;
 
         const { filename, blob } = await generatePdfBlobFromNode(result.node);
@@ -2514,152 +3008,7 @@ async function sharePdfToWhatsApp(exportData=null, logoSrc=null) {
 }
 
 /*// ====================================
-// 🌐 Server Integration for PDF & WhatsApp
-// ====================================*/
-const SERVER_CONFIG = {
-    baseUrl: 'http://localhost:3000',
-    endpoints: {
-        pdf: '/generate-pdf',
-        whatsapp: '/share-whatsapp'
-    }
-};
-
-async function checkServerHealth() {
-    try {
-        const response = await fetch(`${SERVER_CONFIG.baseUrl}/health`);
-        return response.ok;
-    } catch (error) {
-        console.log('Server health check failed:', error.message);
-        return false;
-    }
-}
-
-async function generatePdfOnServer(exportData, logoSrc) {
-    try {
-        showYinYangLoader('Checking server connection...');
-        
-        // Check if server is available
-        const isHealthy = await checkServerHealth();
-        if (!isHealthy) {
-            throw new Error('Server not available');
-        }
-        
-        const html = buildDocHTML(exportData, logoSrc);
-        
-        const response = await fetch(`${SERVER_CONFIG.baseUrl}${SERVER_CONFIG.endpoints.pdf}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                html: html,
-                patientName: readStore()?.patientName || 'Unknown'
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Server error: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        // Server returns success message but no PDF - use client-side
-        showToast('Server connected! Using client-side PDF generation.', 'success');
-        throw new Error('Server PDF generation not implemented yet');
-        
-    } catch (error) {
-        console.log('Server PDF failed, using client-side:', error.message);
-        // Fallback to client-side generation
-        const result = await renderDocInIframe(exportData, logoSrc);
-        const generated = await generatePdfBlobFromNode(result.node);
-        return generated.blob;
-    } finally {
-        hideYinYangLoader();
-    }
-}
-
-async function shareViaWhatsAppServer(pdfBlob, phoneNumber) {
-    try {
-        showYinYangLoader('Preparing WhatsApp share...');
-        
-        const patientName = readStore()?.patientName || 'Patient';
-        const message = t('share.message', { name: patientName });
-        
-        const response = await fetch(`${SERVER_CONFIG.baseUrl}${SERVER_CONFIG.endpoints.whatsapp}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                phoneNumber: phoneNumber,
-                message: message
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`WhatsApp server error: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        // Open WhatsApp with the share URL
-        window.open(result.shareUrl, '_blank');
-        showToast('WhatsApp share opened!', 'success');
-        
-        return result;
-        
-    } catch (error) {
-        console.log('Server WhatsApp failed:', error.message);
-        showToast('Using client-side WhatsApp sharing', 'info');
-        throw error; // This will trigger the fallback in the preview modal
-    } finally {
-        hideYinYangLoader();
-    }
-}
-
-async function shareViaWhatsAppServer(pdfBlob, phoneNumber, message) {
-    try {
-        showYinYangLoader('Sending via WhatsApp...');
-        
-        // Convert blob to base64 for transmission
-        const base64Data = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result.split(',')[1]);
-            reader.readAsDataURL(pdfBlob);
-        });
-        
-        const response = await fetch(`${SERVER_CONFIG.baseUrl}${SERVER_CONFIG.endpoints.whatsapp}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                pdfData: base64Data,
-                phoneNumber: phoneNumber,
-                message: message || t('share.message', { name: readStore()?.patientName || 'Patient' })
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`WhatsApp server responded with ${response.status}`);
-        }
-        
-        const result = await response.json();
-        showToast('Message sent via WhatsApp successfully!', 'success');
-        return result;
-        
-    } catch (error) {
-        console.error('Server WhatsApp sharing failed:', error);
-        showToast('Server sharing failed, using client-side method', 'warning');
-        // Fallback to client-side sharing
-        throw error;
-    } finally {
-        hideYinYangLoader();
-    }
-}
-
-/*// ====================================
-// 🧰 PDF generation helpers
+// 🧰 PDF generation helpers WITH THEME SUPPORT
 // ====================================*/
 async function generatePdfBlobFromNode(node) {
     await ensureHtml2PdfLibrary();
@@ -2669,78 +3018,147 @@ async function generatePdfBlobFromNode(node) {
     const title = t('titles.form');
     const filename = `${safeName}_${title}_${new Date().toISOString().slice(0,10)}.pdf`;
 
-    const width  = Math.max(node.scrollWidth, 794);
-    const height = Math.max(node.scrollHeight, 1123);
+    // Create a clone of the node to avoid affecting the original DOM
+    const clone = node.cloneNode(true);
+    
+    // Add cultural elements and styles to the clone for PDF
+    const style = document.createElement('style');
+    style.textContent = getChineseCulturalStyles();
+    clone.appendChild(style);
+    
+    // Add cultural border elements
+    const culturalElements = document.createElement('div');
+    culturalElements.innerHTML = `
+        <div class="cultural-border top-cultural-border"></div>
+        <div class="cultural-border bottom-cultural-border"></div>
+        <div class="cultural-corner corner-tl"></div>
+        <div class="cultural-corner corner-tr"></div>
+        <div class="cultural-corner corner-bl"></div>
+        <div class="cultural-corner corner-br"></div>
+        <div class="chinese-seal">诊断证明\nMedical Record</div>
+    `;
+    clone.appendChild(culturalElements);
 
-    const blob = await window.html2pdf().set({
-        margin:[14,14,14,14],
-        filename,
-        image:{ type:'jpeg', quality:0.98 },
-        html2canvas:{
-            scale: isMobileLike() ? 2.0 : 2.4,
-            useCORS:true,
-            allowTaint:false,
-            backgroundColor:'#ffffff',
-            windowWidth: width,
-            windowHeight: height,
-            scrollX:0, scrollY:0,
-            letterRendering:true,
-            logging:false,
-            removeContainer:true,
-            onclone:(clonedDoc)=>{
-                try{
-                    const s = clonedDoc.createElement('style');
-                    s.id = 'pdf-pseudo-reset';
-                    s.textContent = '*::before,*::after{content:"" !important} *{box-shadow:none !important;filter:none !important;}';
-                    clonedDoc.head.appendChild(s);
-                    clonedDoc.querySelectorAll('i[class*="fa-"], i.fa, i.fas, i.far, i.fab').forEach(el => el.remove());
-                }catch{}
+    // Add preview mode class for proper styling
+    clone.classList.add('preview-mode');
+
+    // Create a temporary container
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'fixed';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.top = '0';
+    tempContainer.appendChild(clone);
+    document.body.appendChild(tempContainer);
+
+    try {
+        const blob = await window.html2pdf().set({
+            margin: [10, 10, 10, 10],
+            filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+                scale: isMobileLike() ? 2.0 : 2.4,
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: '#ffffff',
+                logging: false,
+                removeContainer: true,
+                onclone: (clonedDoc, element) => {
+                    try {
+                        // Remove any icons/font awesome that might break rendering
+                        clonedDoc.querySelectorAll('i[class*="fa-"], i.fa, i.fas, i.far, i.fab').forEach(el => el.remove());
+                        
+                        // Ensure proper box-sizing for print
+                        const style = clonedDoc.createElement('style');
+                        style.textContent = `
+                            * { 
+                                box-sizing: border-box; 
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                            }
+                            .page { 
+                                margin: 0 auto !important;
+                                box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
+                            }
+                        `;
+                        clonedDoc.head.appendChild(style);
+                    } catch(e) { console.warn('PDF clone enhancement failed:', e); }
+                }
+            },
+            jsPDF: { 
+                unit: 'mm', 
+                format: 'a4', 
+                orientation: 'portrait', 
+                compress: true,
+                hotfixes: ["px_scaling"] // Important for proper scaling
+            },
+            pagebreak: { 
+                mode: ['css', 'legacy'], 
+                before: '.page-break-before, .section', 
+                after: '.page-break-after',
+                avoid: ['.entry', '.info-item', '.table-grid tr', '.table-grid td', '.no-break']
             }
-        },
-        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait', compress:true },
-        pagebreak:{ mode:['css','legacy'], before:'.section', avoid:'.entry, .pitem, .table-grid tr, .table-grid td' }
-    }).from(node).output('blob');
+        }).from(clone).output('blob');
 
-    return { filename, blob };
+        return { filename, blob };
+    } finally {
+        // Clean up temporary container
+        if (tempContainer.parentNode) {
+            document.body.removeChild(tempContainer);
+        }
+    }
 }
 
 async function openOrSharePdfBlob(blob, filename) {
-    // Desktop → download. Mobile → try share, else open + download.
-    try {
-        const file = new File([blob], filename, { type: 'application/pdf' });
-        if (isMobileLike() && navigator.canShare && navigator.canShare({ files:[file] })) {
-            await navigator.share({
-                files:[file],
-                title: filename,
-                text: currentLanguage==='pt' ? 'PDF gerado.' : 'PDF generated.'
-            });
-            return;
-        }
-    } catch {}
-
-    await triggerDownloadBlob(filename, blob);
-
-    // Also open a viewer tab if popups aren’t blocked (helps printing on phones without share)
+    // Always open in new tab for printing consistency
     try {
         const url = URL.createObjectURL(blob);
         const win = window.open(url, '_blank');
-        setTimeout(()=>URL.revokeObjectURL(url), 30000);
-        if (!win) { /* popup blocked — download already triggered above */ }
-    } catch {}
+        
+        // Set a timeout to revoke the URL after the window should have loaded it
+        setTimeout(() => {
+            try {
+                URL.revokeObjectURL(url);
+            } catch(e) {
+                console.warn('Could not revoke URL:', e);
+            }
+        }, 60000); // 60 seconds should be enough
+        
+        // If popup blocked, trigger download
+        if (!win) {
+            await triggerDownloadBlob(filename, blob);
+            showToast(currentLanguage === 'pt' ? 
+                'Popup bloqueado. PDF baixado. Você pode imprimir manualmente.' : 
+                'Popup blocked. PDF downloaded. You can print manually.', 'info');
+        }
+    } catch (error) {
+        console.error('Error opening PDF:', error);
+        // Fallback to download
+        await triggerDownloadBlob(filename, blob);
+    }
 }
 
 async function triggerDownloadBlob(filename, blob) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 30000);
+    document.body.removeChild(a);
+    
+    // Revoke URL after a reasonable time
+    setTimeout(() => {
+        try {
+            URL.revokeObjectURL(url);
+        } catch(e) {
+            console.warn('Could not revoke download URL:', e);
+        }
+    }, 30000);
 }
 
 /*// ====================================
-// 🎯 PREVIEW MODAL SYSTEM (keeps your style, closes ONLY on “X”)
+// 🎯 PREVIEW MODAL SYSTEM WITH THEME SWITCHER
 // ====================================*/
 let currentExportData = null;
 let currentLogoSrc = null;
@@ -2750,7 +3168,7 @@ async function showPreviewModal(exportData, logoSrc) {
     currentExportData = exportData;
     currentLogoSrc = logoSrc;
 
-    // If a previous modal exists, close it first for idempotency
+    // Close any existing modal first
     try { closePreviewModal(); } catch {}
 
     const modal = document.createElement('div');
@@ -2758,14 +3176,25 @@ async function showPreviewModal(exportData, logoSrc) {
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-labelledby', 'golden-preview-title');
+    
     modal.innerHTML = `
         <div class="preview-modal-content">
             <div class="preview-modal-header">
                 <h3 id="golden-preview-title">${t('preview.title') || 'Document Preview'}</h3>
+                
+                <div class="theme-selector">
+                    <label for="preview-theme-select">${t('preview.styleName') || 'Style'}</label>
+                    <select id="preview-theme-select">
+                        <option value="${THEMES.MODERN}">${t('preview.modStyle') || 'Modern'}</option>
+                        <option value="${THEMES.CLASSIC}">${t('preview.claStyle') || 'Classic'}</option>
+                        <option value="${THEMES.MINIMAL}">${t('preview.minStyle') || 'Minimal'}</option>
+                    </select>
+                </div>
+                
                 <span class="preview-close" aria-label="Close" title="Close" type="button">&times;</span>
             </div>
             <div class="preview-modal-body">
-                <iframe id="preview-iframe" style="width:100%;height:100%;border:none;"></iframe>
+                <iframe id="preview-iframe" style="width:100%;height:100%;border:none;" title="Document Preview"></iframe>
             </div>
             <div class="preview-modal-footer">
                 <button id="preview-edit-btn" class="preview-btn preview-btn-edit" type="button">
@@ -2783,80 +3212,145 @@ async function showPreviewModal(exportData, logoSrc) {
             </div>
         </div>
     `;
+    
     document.body.appendChild(modal);
 
-    // Lock page scroll while modal is open
+    // Lock page scroll
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     const iframe = document.getElementById('preview-iframe');
-    const docHTML = buildDocHTML(exportData, logoSrc);
+    
+    // Load initial theme
+    const loadIframeWithTheme = (theme) => {
+        const docHTML = buildDocHTML(exportData, logoSrc, theme);
+        iframe.srcdoc = docHTML;
+    };
 
+    loadIframeWithTheme(currentTheme);
+
+    // Theme switcher handler
+    const themeSelect = modal.querySelector('#preview-theme-select');
+    themeSelect.value = currentTheme;
+    themeSelect.addEventListener('change', (e) => {
+        currentTheme = e.target.value;
+        loadIframeWithTheme(currentTheme);
+    });
+
+    // Enhanced iframe loading with cultural elements
     iframe.onload = function () {
         try {
             const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            
+            // Add cultural styles
             const style = iframeDoc.createElement('style');
             style.textContent = getChineseCulturalStyles();
             iframeDoc.head.appendChild(style);
+            
+            // Add cultural elements
             addCulturalElements(iframeDoc);
-        } catch (e) { console.warn('Could not enhance preview with cultural elements:', e); }
+            
+            // Add print-specific styles
+            const printStyle = iframeDoc.createElement('style');
+            printStyle.textContent = `
+                @media print {
+                    body { margin: 0 !important; padding: 0 !important; }
+                    .page { box-shadow: none !important; margin: 0 !important; page-break-after: always; }
+                    .preview-mode .page { margin: 0 auto !important; }
+                }
+            `;
+            iframeDoc.head.appendChild(printStyle);
+        } catch (e) { 
+            console.warn('Could not enhance preview with cultural elements:', e); 
+        }
     };
-    iframe.srcdoc = docHTML;
 
-    // Handlers — NOTE: only the “X” closes the modal now (Edit will close explicitly)
+    // Event Handlers
     const onCloseClick = () => closePreviewModal();
-
+    
     const withBusy = async (btn, fn) => {
         if (!btn) return;
+        const prevText = btn.innerHTML;
         const prevDisabled = btn.disabled;
+        
         btn.disabled = true;
         btn.setAttribute('aria-busy', 'true');
-        try { await fn(); } catch {} finally {
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> ${currentLanguage === 'pt' ? 'Processando...' : 'Processing...'}`;
+        
+        try { 
+            await fn(); 
+        } catch (error) {
+            console.error('Action failed:', error);
+            showToast(currentLanguage === 'pt' ? 'Ação falhou.' : 'Action failed.', 'error');
+        } finally {
             btn.disabled = prevDisabled;
             btn.removeAttribute('aria-busy');
+            btn.innerHTML = prevText;
         }
     };
 
     const onPdfClick = async (e) => {
-        await withBusy(e.currentTarget, async () =>
-            (savePdfUnified?.(currentExportData, currentLogoSrc) || saveToPDF?.(currentExportData, currentLogoSrc))
-        );
-    };
-    const onPrintClick = async (e) => {
-        await withBusy(e.currentTarget, async () =>
-            (printDocumentUnified?.(currentExportData, currentLogoSrc) || printDocumentPaged?.(currentExportData, currentLogoSrc))
-        );
-    };
-    const onWhatsClick = async (e) => {
-        await withBusy(e.currentTarget, async () =>
-            (sharePdfToWhatsApp?.(currentExportData, currentLogoSrc) || shareViaWhatsApp?.(currentExportData, currentLogoSrc))
-        );
+        await withBusy(e.currentTarget, async () => {
+            // Use the unified PDF generation with current theme
+            await savePdfUnified?.(currentExportData, currentLogoSrc, currentTheme);
+        });
     };
 
-    // “Edit” now returns to the form: close modal, focus a good field, and highlight briefly
+    const onPrintClick = async (e) => {
+        await withBusy(e.currentTarget, async () => {
+            // Print the iframe content directly for better accuracy
+            try {
+                const iframe = document.getElementById('preview-iframe');
+                const iframeWindow = iframe.contentWindow;
+                
+                // Wait for iframe to fully load
+                await new Promise(resolve => {
+                    if (iframeWindow.document.readyState === 'complete') {
+                        resolve();
+                    } else {
+                        iframeWindow.addEventListener('load', resolve, { once: true });
+                    }
+                });
+                
+                iframeWindow.focus();
+                iframeWindow.print();
+            } catch (error) {
+                console.error('Direct print failed, falling back:', error);
+                // Fallback to PDF generation method with current theme
+                await printDocumentUnified?.(currentExportData, currentLogoSrc, currentTheme);
+            }
+        });
+    };
+
+    const onWhatsClick = async (e) => {
+        await withBusy(e.currentTarget, async () => {
+            await sharePdfToWhatsApp?.(currentExportData, currentLogoSrc, currentTheme);
+        });
+    };
+
     const onEditClick = async (e) => {
         await withBusy(e.currentTarget, async () => {
-            // Inject a tiny highlight style once
+            // Add highlight style
             if (!document.getElementById('gd-edit-flash-style')) {
                 const s = document.createElement('style');
                 s.id = 'gd-edit-flash-style';
                 s.textContent = `
                     .gd-edit-flash {
-                        outline: 3px solid var(--jade, #0f766e);
-                        outline-offset: 2px;
-                        transition: outline-color .8s ease, outline-offset .8s ease;
+                        outline: 3px solid var(--jade, #0f766e) !important;
+                        outline-offset: 2px !important;
+                        transition: outline-color 0.8s ease, outline-offset 0.8s ease !important;
+                        background-color: rgba(15, 118, 110, 0.1) !important;
                     }
                 `;
                 document.head.appendChild(s);
             }
 
-            // Close preview first (restores scroll via cleanup)
             closePreviewModal();
 
-            // Wait a tick so underlying layout is ready, then focus a sensible target
-            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+            // Wait for DOM to settle
+            await new Promise(r => setTimeout(r, 100));
 
-            // Preference order: explicit target, autofocus, first enabled text-like control
+            // Find and focus target element
             const findEditTarget = () => {
                 const explicit = document.querySelector('[data-edit-focus]');
                 if (explicit) return explicit;
@@ -2864,12 +3358,9 @@ async function showPreviewModal(exportData, logoSrc) {
                 const auto = document.querySelector('[autofocus]');
                 if (auto && !auto.disabled && auto.offsetParent !== null) return auto;
 
-                const candidates = Array.from(document.querySelectorAll('input, textarea, select'));
+                const candidates = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'));
                 for (const el of candidates) {
-                    if (el.disabled) continue;
-                    if (el.type === 'hidden') continue;
-                    if (el.offsetParent === null) continue; // not visible
-                    return el;
+                    if (el.offsetParent !== null) return el;
                 }
                 return null;
             };
@@ -2877,41 +3368,41 @@ async function showPreviewModal(exportData, logoSrc) {
             const target = findEditTarget();
             if (target) {
                 try {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-                } catch {}
-                try {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     target.focus({ preventScroll: true });
-                } catch {}
-                try {
                     target.classList.add('gd-edit-flash');
                     setTimeout(() => target.classList.remove('gd-edit-flash'), 1200);
-                } catch {}
+                } catch (err) {
+                    console.warn('Could not focus target:', err);
+                }
             }
         });
     };
 
+    // Attach event listeners
     modal.querySelector('.preview-close').addEventListener('click', onCloseClick);
     modal.querySelector('#preview-edit-btn').addEventListener('click', onEditClick);
     modal.querySelector('#preview-pdf-btn').addEventListener('click', onPdfClick);
     modal.querySelector('#preview-print-btn').addEventListener('click', onPrintClick);
     modal.querySelector('#preview-whatsapp-btn').addEventListener('click', onWhatsClick);
 
-    // DO NOT close on backdrop click or ESC anymore
-    // (No backdrop or keydown listeners registered)
-
+    // Show modal
     modal.style.display = 'block';
 
-    // Move focus to close button for accessibility
+    // Focus management for accessibility
     const closeBtn = modal.querySelector('.preview-close');
     try { closeBtn?.focus(); } catch {}
 
-    // Cleanup function to remove listeners and restore scroll when X is clicked
+    // Cleanup function
     _previewCleanup = () => {
-        try { modal.querySelector('.preview-close')?.removeEventListener('click', onCloseClick); } catch {}
-        try { modal.querySelector('#preview-edit-btn')?.removeEventListener('click', onEditClick); } catch {}
-        try { modal.querySelector('#preview-pdf-btn')?.removeEventListener('click', onPdfClick); } catch {}
-        try { modal.querySelector('#preview-print-btn')?.removeEventListener('click', onPrintClick); } catch {}
-        try { modal.querySelector('#preview-whatsapp-btn')?.removeEventListener('click', onWhatsClick); } catch {}
+        try {
+            modal.querySelector('.preview-close')?.removeEventListener('click', onCloseClick);
+            modal.querySelector('#preview-edit-btn')?.removeEventListener('click', onEditClick);
+            modal.querySelector('#preview-pdf-btn')?.removeEventListener('click', onPdfClick);
+            modal.querySelector('#preview-print-btn')?.removeEventListener('click', onPrintClick);
+            modal.querySelector('#preview-whatsapp-btn')?.removeEventListener('click', onWhatsClick);
+            themeSelect?.removeEventListener('change', () => {});
+        } catch {}
         document.body.style.overflow = prevOverflow || '';
     };
 }
@@ -2919,234 +3410,590 @@ async function showPreviewModal(exportData, logoSrc) {
 function closePreviewModal() {
     const modal = document.getElementById('golden-preview-modal');
     if (!modal) return;
+    
     modal.style.display = 'none';
     try { _previewCleanup?.(); } catch {}
-    setTimeout(() => { try { modal.remove(); } catch {} }, 300);
+    
+    setTimeout(() => { 
+        try { 
+            if (modal.parentNode) {
+                modal.remove(); 
+            }
+        } catch {} 
+    }, 300);
 }
 
-/* Cosmetic styles injected inside the preview iframe */
+/*// ====================================
+// 🎨 CULTURAL STYLES & ELEMENTS
+// ====================================*/
 function getChineseCulturalStyles() {
     return `
-        :root{--jade:#0f766e;--gold:#d4af37;--cinnabar:#bf1e2e;--ink:#1f2937;--line:rgba(0,0,0,.1)}
-        .cultural-border{position:fixed;pointer-events:none;z-index:1;width:100%}
-        .top-cultural-border{top:0;left:0;right:0;height:18px;background:linear-gradient(90deg,var(--jade),var(--gold),var(--jade));opacity:.6;z-index:2}
-        .bottom-cultural-border{bottom:0;left:0;right:0;height:18px;background:linear-gradient(90deg,var(--jade),var(--gold),var(--jade));opacity:.6;z-index:2}
-        .cultural-corner{position:fixed;width:26px;height:26px;border:3px solid var(--jade);opacity:.45;background:transparent}
-        .corner-tl{top:22px;left:10px;border-right-color:transparent;border-bottom-color:transparent;border-radius:8px 0 0 0}
-        .corner-tr{top:22px;right:10px;border-left-color:transparent;border-bottom-color:transparent;border-radius:0 8px 0 0}
-        .corner-bl{bottom:22px;left:10px;border-right-color:transparent;border-top-color:transparent;border-radius:0 0 0 8px}
-        .corner-br{bottom:22px;right:10px;border-left-color:transparent;border-top-color:transparent;border-radius:0 0 8px 0}
-        .chinese-pattern{position:absolute;inset:0;opacity:.1;pointer-events:none;z-index:0}
-        .chinese-seal{position:fixed;bottom:26px;right:26px;width:70px;height:70px;border:2px solid var(--cinnabar);border-radius:5px;display:flex;align-items:center;justify-content:center;transform:rotate(5deg);background:rgba(191,30,46,.05);color:var(--cinnabar);font-family:"Noto Serif SC",serif;font-weight:900;font-size:12px;text-align:center;padding:4px;opacity:.8;z-index:2}
-        .preview-mode .page{box-shadow:0 0 24px rgba(0,0,0,.15);margin:20px auto}
+        :root {
+            --jade: #0f766e;
+            --gold: #d4af37;
+            --cinnabar: #bf1e2e;
+            --ink: #1f2937;
+            --line: rgba(0,0,0,.1);
+        }
+        
+        .cultural-border {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            width: 100%;
+        }
+        
+        .top-cultural-border {
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 12px;
+            background: linear-gradient(90deg, var(--jade), var(--gold), var(--jade));
+            opacity: 0.7;
+        }
+        
+        .bottom-cultural-border {
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 12px;
+            background: linear-gradient(90deg, var(--jade), var(--gold), var(--jade));
+            opacity: 0.7;
+        }
+        
+        .cultural-corner {
+            position: fixed;
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--jade);
+            opacity: 0.5;
+            background: transparent;
+            z-index: 1000;
+        }
+        
+        .corner-tl {
+            top: 15px;
+            left: 8px;
+            border-right-color: transparent;
+            border-bottom-color: transparent;
+            border-radius: 6px 0 0 0;
+        }
+        
+        .corner-tr {
+            top: 15px;
+            right: 8px;
+            border-left-color: transparent;
+            border-bottom-color: transparent;
+            border-radius: 0 6px 0 0;
+        }
+        
+        .corner-bl {
+            bottom: 15px;
+            left: 8px;
+            border-right-color: transparent;
+            border-top-color: transparent;
+            border-radius: 0 0 0 6px;
+        }
+        
+        .corner-br {
+            bottom: 15px;
+            right: 8px;
+            border-left-color: transparent;
+            border-top-color: transparent;
+            border-radius: 0 0 6px 0;
+        }
+        
+        .chinese-pattern {
+            position: absolute;
+            inset: 0;
+            opacity: .03;
+            pointer-events: none;
+            z-index: 0;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%230f766e' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E");
+        }
+        
+        .chinese-seal {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border: 2px solid var(--cinnabar);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(5deg);
+            background: rgba(191, 30, 46, 0.05);
+            color: var(--cinnabar);
+            font-family: "Noto Serif SC", serif;
+            font-weight: 900;
+            font-size: 10px;
+            text-align: center;
+            padding: 3px;
+            opacity: 0.8;
+            z-index: 1000;
+            line-height: 1.2;
+        }
+        
+        .preview-mode .page {
+            box-shadow: 0 0 20px rgba(0,0,0,0.15);
+            margin: 20px auto;
+            position: relative;
+        }
+        
+        /* Ensure print compatibility */
+        @media print {
+            .cultural-border,
+            .cultural-corner,
+            .chinese-seal {
+                display: none !important;
+            }
+            
+            .preview-mode .page {
+                box-shadow: none !important;
+                margin: 0 !important;
+            }
+        }
     `;
 }
 
 function addCulturalElements(doc) {
     const body = doc.body;
+    if (!body) return;
+    
     body.classList.add('preview-mode');
+    
+    // Add pattern background
     const pattern = doc.createElement('div');
     pattern.className = 'chinese-pattern';
     body.appendChild(pattern);
+    
+    // Add borders
     const topBorder = doc.createElement('div');
     topBorder.className = 'cultural-border top-cultural-border';
     body.appendChild(topBorder);
+    
     const bottomBorder = doc.createElement('div');
     bottomBorder.className = 'cultural-border bottom-cultural-border';
     body.appendChild(bottomBorder);
+    
+    // Add corners
     ['tl', 'tr', 'bl', 'br'].forEach(c => {
         const el = doc.createElement('div');
         el.className = `cultural-corner corner-${c}`;
         body.appendChild(el);
     });
+    
+    // Add seal
     const seal = doc.createElement('div');
     seal.className = 'chinese-seal';
     seal.textContent = '诊断证明\nMedical Record';
     body.appendChild(seal);
 }
 
-/*// ------------------------------------
-// 🖼️ Host-page styles for the preview modal
-// ------------------------------------*/
+/*// ====================================
+// 🎨 PREVIEW MODAL STYLES WITH CENTERED THEME SELECTOR
+// ====================================*/
 const previewModalStyles = `
     :root { 
         --jade: #0f766e; 
         --jade-600: #0d5e58; 
         --gold: #d4af37; 
         --ink: #1f2937; 
-        --line:rgba(0,0,0,.1); 
+        --line: rgba(0,0,0,.1); 
     }
-    #golden-preview-modal{
-        display:none;
-        position:fixed;
-        z-index:10000;
-        inset:0;
-        overflow:auto;
-        background:rgba(138, 127, 127, 0.51);
-        font-family:Inter,system-ui,Arial,sans-serif;
+    
+    #golden-preview-modal {
+        display: none;
+        position: fixed;
+        z-index: 10000;
+        inset: 0;
+        overflow: auto;
+        background: rgba(138, 127, 127, 0.51);
+        font-family: Inter, system-ui, Arial, sans-serif;
         backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
     }
-    .preview-modal-content{
-        position:relative;
+    
+    .preview-modal-content {
+        position: relative;
         background: #fefefe;
-        margin:2% auto;
-        width:95%;
-        height:90%;
-        border-radius:12px;
-        box-shadow:0 5px 30px rgba(0,0,0,.3);
-        display:flex;
-        flex-direction:column;
-        overflow:hidden;
-        border:1px solid var(--gold)
+        margin: 2% auto;
+        width: 95%;
+        height: 90%;
+        border-radius: 12px;
+        box-shadow: 0 5px 30px rgba(0,0,0,.3);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--gold);
     }
-    .preview-modal-header{
-        padding:15px 20px;
-        background:linear-gradient(135deg,var(--jade),var(--jade-600));
+    
+    .preview-modal-header {
+        padding: 15px 20px;
+        background: linear-gradient(135deg, var(--jade), var(--jade-600));
         color: #fff;
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        border-bottom:2px solid var(--gold)
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        border-bottom: 2px solid var(--gold);
+        position: relative;
+        min-height: 60px;
     }
-    .preview-modal-header h3{ 
-        margin:0;
-        font-family:"Noto Serif SC",serif;font-weight:700;
-        font-size:1.2rem
+    
+    .preview-modal-header h3 { 
+        margin: 0;
+        font-family: "Noto Serif SC", serif;
+        font-weight: 700;
+        font-size: 1.2rem;
+        grid-column: 1;
+        justify-self: start;
     }
-    .preview-close{
+    
+    .theme-selector {
+        grid-column: 2;
+        justify-self: center;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .theme-selector label {
+        font-weight: 600;
+        white-space: nowrap;
+        color: white;
+    }
+    
+    .theme-selector select {
+        padding: 6px 10px;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 6px;
+        background: rgba(255,255,255,0.15);
+        color: white;
+        font-size: 0.9rem;
+        min-width: 100px;
+        cursor: pointer;
+    }
+    
+    .theme-selector select:hover {
+        background: rgba(255,255,255,0.25);
+    }
+    
+    .theme-selector select option {
+        background: var(--jade-600);
+        color: white;
+        padding: 8px;
+    }
+    
+    .preview-close {
+        grid-column: 3;
+        justify-self: end;
         color: #fff;
-        font-size:28px;
-        font-weight:400;
-        cursor:pointer;
+        font-size: 28px;
+        font-weight: 400;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+        background: none;
+        border: none;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
-    .preview-close:hover{
-        opacity:1
+    
+    .preview-close:hover {
+        opacity: 0.8;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
     }
-    .preview-modal-body{
-        flex:1;overflow:hidden;
-        background: #f0f2f5
+    
+    .preview-modal-body {
+        flex: 1;
+        overflow: hidden;
+        background: #f0f2f5;
+        position: relative;
     }
-    .preview-modal-footer{
-        padding:15px 20px;
-        background:linear-gradient(135deg, #f6f7f9, #e8eaed);
-        display:flex;
-        justify-content:flex-end;
-        gap:12px;
-        border-top:1px solid var(--line)
+    
+    .preview-modal-footer {
+        padding: 15px 20px;
+        background: linear-gradient(135deg, #f6f7f9, #e8eaed);
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        border-top: 1px solid var(--line);
+        flex-wrap: wrap;
     }
-    .preview-btn{
-        padding:10px 20px;
-        border:none;
-        border-radius:6px;
-        cursor:pointer;
-        font-weight:600;
-        font-size:.95rem;
-        transition:.2s all;
-        display:inline-flex;
-        align-items:center;
-        gap:8px
+    
+    .preview-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: .95rem;
+        transition: .2s all;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
     }
-    .preview-btn-edit{
+    
+    .preview-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .preview-btn-edit {
         background: #e5e7eb;
-        color:var(--ink)
+        color: var(--ink);
     }
-    .preview-btn-edit:hover{
-        background: #d1d5db
+    
+    .preview-btn-edit:hover:not(:disabled) {
+        background: #d1d5db;
     }
-    .preview-btn-primary{
-        background:linear-gradient(135deg,var(--jade),var(--jade-600));
-        color: #fff
+    
+    .preview-btn-primary {
+        background: linear-gradient(135deg, var(--jade), var(--jade-600));
+        color: #fff;
     }
-    .preview-btn-primary:hover{
-        background:linear-gradient(135deg,var(--jade-600),#0a554e);
-        box-shadow:0 2px 8px rgba(15,118,110,.4)
+    
+    .preview-btn-primary:hover:not(:disabled) {
+        background: linear-gradient(135deg, var(--jade-600), #0a554e);
+        box-shadow: 0 2px 8px rgba(15,118,110,.4);
     }
-    .preview-btn-success{
-        background:linear-gradient(135deg,#22c55e,#16a34a);
-        color: #fff
+    
+    .preview-btn-success {
+        background: linear-gradient(135deg, #22c55e, #16a34a);
+        color: #fff;
     }
-    .preview-btn-success:hover{
-        background:linear-gradient(135deg,#16a34a,#15803d);
-        box-shadow:0 2px 8px rgba(34,197,94,.4)
+    
+    .preview-btn-success:hover:not(:disabled) {
+        background: linear-gradient(135deg, #16a34a, #15803d);
+        box-shadow: 0 2px 8px rgba(34,197,94,.4);
     }
-    @media (max-width:768px){ 
-        .preview-modal-content{
-            width:98%;
-            height:95%;
-            margin:1% auto
+    
+    /* Mobile responsiveness - FIXED THEME SELECTOR */
+    @media (max-width: 768px) { 
+        .preview-modal-content {
+            width: 98%;
+            height: 95%;
+            margin: 1% auto;
         } 
-        .preview-modal-footer{
-            flex-wrap:wrap
+        
+        .preview-modal-header {
+            grid-template-columns: 1fr auto 1fr;
+            grid-template-rows: 1fr;
+            gap: 15px;
+            padding: 12px 15px;
+            min-height: 50px;
+        }
+        
+        .preview-modal-header h3 {
+            grid-column: 2;
+            grid-row: 1;
+            justify-self: start;
+            font-size: 1.1rem;
+        }
+        
+        .theme-selector {
+            grid-column: 2;
+            grid-row: 2;
+            justify-self: center;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-direction: row; /* Ensure side by side layout */
+        }
+        
+        .theme-selector label {
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        
+        .theme-selector select {
+            min-width: 90px;
+            font-size: 0.85rem;
+            padding: 5px 8px;
+        }
+        
+        .preview-close {
+            grid-column: 3;
+            grid-row: 1;
+            justify-self: end;
+            position: static;
+            font-size: 24px;
+            width: 26px;
+            height: 26px;
+        }
+        
+        .preview-modal-footer {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 15px;
         } 
-        .preview-btn{
-            flex:1;
-            min-width:120px;
-            justify-content:center
+        
+        .preview-btn {
+            flex: 1;
+            min-width: 140px;
+            justify-content: center;
+            font-size: 0.9rem;
+            padding: 10px 14px;
         } 
+    }
+    
+    /* Extra small devices */
+    @media (max-width: 480px) {
+        .preview-modal-header {
+            gap: 10px;
+            padding: 10px 12px;
+        }
+        
+        .preview-modal-header h3 {
+            font-size: 1rem;
+        }
+        
+        .theme-selector {
+            gap: 6px;
+        }
+        
+        .theme-selector label {
+            font-size: 0.8rem;
+        }
+        
+        .theme-selector select {
+            min-width: 80px;
+            font-size: 0.8rem;
+            padding: 4px 6px;
+        }
+        
+        .preview-btn {
+            min-width: 120px;
+            font-size: 0.85rem;
+            padding: 8px 12px;
+        }
+    }
+    
+    /* Very small devices - ensure theme selector stays side by side */
+    @media (max-width: 360px) {
+        .theme-selector {
+            flex-direction: row !important; /* Force side by side */
+            gap: 4px;
+        }
+        
+        .theme-selector label {
+            font-size: 0.75rem;
+        }
+        
+        .theme-selector select {
+            min-width: 70px;
+            font-size: 0.75rem;
+        }
     }
 `;
+
+// Inject styles
 (function () {
+    if (document.getElementById('golden-preview-styles')) return;
+    
     const s = document.createElement('style');
+    s.id = 'golden-preview-styles';
     s.textContent = previewModalStyles;
     document.head.appendChild(s);
 })();
 
-/*// ------------------------------------
-// 🔄 Unified entry: collect → open preview (keeps your original flow)
-// ------------------------------------*/
+/*// ====================================
+// 🧩 UPDATE I18N FOR THEME SELECTOR
+// ====================================*/
+// Add these to your I18N object:
+I18N.pt.preview = {
+    title: 'Pré-visualização do Documento',
+    edit: 'Editar',
+    savePdf: 'Salvar PDF', 
+    print: 'Imprimir',
+    styleName: 'Estilo',
+    modStyle: 'Moderno',
+    claStyle: 'Clássico',
+    minStyle: 'Mínimo'
+};
+
+I18N.en.preview = {
+    title: 'Document Preview',
+    edit: 'Edit',
+    savePdf: 'Save PDF',
+    print: 'Print', 
+    styleName: 'Style',
+    modStyle: 'Modern',
+    claStyle: 'Classic',
+    minStyle: 'Minimal'
+};
+
+/*// ====================================
+// 🔄 UPDATE PREPARE EXPORT FOR THEME SUPPORT
+// ====================================*/
 async function prepareExport(actionType) {
-    const btnMap = { preview: '#previewButton', pdf: '#savePDF', print: '#printButton', whatsapp: '#whatsappButton' };
+    const btnMap = { 
+        preview: '#previewButton', 
+        pdf: '#savePDF', 
+        print: '#printButton', 
+        whatsapp: '#whatsappButton' 
+    };
     const btnSel = btnMap[actionType] || '#previewButton';
 
     disableButton?.(btnSel);
     showYinYangLoader(t('toasts.generatingPreview') || t('toasts.generatingPDF'), btnSel);
+    
     try {
+        // Save current form state
         saveFormData(document, true);
+        
         const exportData = collectFilledData() || {};
-        if (!exportData.sections?.length) { showToast(t('errors.noDataToExport'), 'warning'); return; }
+        if (!exportData.sections?.length) { 
+            showToast(t('errors.noDataToExport'), 'warning'); 
+            return; 
+        }
+        
+        // Get logo
         let logoSrc = await chooseWorkingLogoSrc();
-        try { logoSrc = await toDataURL(logoSrc); } catch { logoSrc = LOGO_BASE64_FALLBACK; }
-        await showPreviewModal(exportData, logoSrc);
+        try { 
+            logoSrc = await toDataURL(logoSrc); 
+        } catch { 
+            logoSrc = LOGO_BASE64_FALLBACK; 
+        }
+        
+        // For preview action, open modal
+        if (actionType === 'preview') {
+            await showPreviewModal(exportData, logoSrc);
+        } else {
+            // For direct actions, use the unified functions with current theme
+            switch (actionType) {
+                case 'pdf':
+                    await savePdfUnified?.(exportData, logoSrc, currentTheme);
+                    break;
+                case 'print':
+                    await printDocumentUnified?.(exportData, logoSrc, currentTheme);
+                    break;
+                case 'whatsapp':
+                    await sharePdfToWhatsApp?.(exportData, logoSrc, currentTheme);
+                    break;
+            }
+        }
     } catch (e) {
         console.error('prepareExport error:', e);
-        showToast(t('errors.exportFailed') || (currentLanguage === 'pt' ? 'Falha na exportação.' : 'Export failed.'), 'error');
+        showToast(
+            t('errors.exportFailed') || 
+            (currentLanguage === 'pt' ? 'Falha na exportação.' : 'Export failed.'), 
+            'error'
+        );
     } finally {
-        hideYinYangLoader(); enableButton?.(btnSel);
+        hideYinYangLoader(); 
+        enableButton?.(btnSel);
     }
 }
-
-/*// ====================================
-// 📞 Phone helpers
-// ====================================*/
-function phoneE164IfPossible() {
-    try {
-        const data = readStore() || {};
-        const digits = (data.phone || '').replace(/\D+/g,'');
-        const country = data.country || (currentLanguage==='pt'?'BR':'US');
-        const dial = (COUNTRY_PHONE?.[country] || COUNTRY_PHONE?.US || { dial:'1' }).dial;
-        if (!digits) return null;
-        const e164 = digits.startsWith(dial) ? digits : (dial + digits.replace(/^0+/, ''));
-        return e164;
-    } catch { return null; }
-}
-
-/*// ====================================
-// 📤 Helpers to re-use current preview content (optional)
-// ====================================*/
-async function sendPreviewToWhatsApp(){
-    try {
-        const hasPreview = !!(currentExportData && currentExportData.sections?.length);
-        if (hasPreview) {
-            await sharePdfToWhatsApp(currentExportData, currentLogoSrc);
-            return;
-        }
-        await sharePdfToWhatsApp(null, null);
-    } catch (e) {
-        console.error('sendPreviewToWhatsApp error:', e);
-        showToast(t('errors.shareFailed'), 'error');
-    }
-}
-
 
 /*// ====================================
 // 🪟 Modals + Autosave + Menu + Header
